@@ -1,14 +1,16 @@
+#![allow(dead_code)]
+
 use nalgebra::*;
 use std::collections::HashMap;
 
-use crate::triangle::*;
+use crate::{triangle::*, utility};
 
 #[derive(Default, Clone, Copy)]
 pub struct Buffer(u32);
 
 impl Buffer {
-    pub const Color: Self = Buffer(1);
-    pub const Depth: Self = Buffer(2);
+    pub const COLOR: Self = Buffer(1);
+    pub const DEPTH: Self = Buffer(2);
 }
 
 impl std::ops::BitOr for Buffer {
@@ -25,15 +27,16 @@ impl std::ops::BitAnd for Buffer {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Primitive {
-    Line,
-    Triangle,
+    LINE,
+    TRIANGLE,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct pos_buf_id(u32);
+pub struct PosBufId(u32);
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct ind_buf_id(u32);
+pub struct IndBufId(u32);
 
 #[derive(Default)]
 pub struct Rasterizer {
@@ -41,8 +44,8 @@ pub struct Rasterizer {
     view: Matrix4<f32>,
     projection: Matrix4<f32>,
 
-    pos_buf: HashMap<pos_buf_id, Vec<Vector3<f32>>>,
-    ind_buf: HashMap<ind_buf_id, Vec<Vector3<u32>>>,
+    pos_buf: HashMap<PosBufId, Vec<Vector3<f32>>>,
+    ind_buf: HashMap<IndBufId, Vec<Vector3<u32>>>,
 
     frame_buf: Vec<Vector3<f32>>,
     depth_buf: Vec<f32>,
@@ -64,18 +67,18 @@ impl Rasterizer {
         }
     }
 
-    pub fn load_position(&mut self, positions: Vec<Vector3<f32>>) -> pos_buf_id {
+    pub fn load_position(&mut self, positions: Vec<Vector3<f32>>) -> PosBufId {
         let id = self.get_next_id();
-        self.pos_buf.insert(pos_buf_id(id), positions);
+        self.pos_buf.insert(PosBufId(id), positions);
 
-        pos_buf_id(id)
+        PosBufId(id)
     }
 
-    pub fn load_indices(&mut self, indices: Vec<Vector3<u32>>) -> ind_buf_id {
+    pub fn load_indices(&mut self, indices: Vec<Vector3<u32>>) -> IndBufId {
         let id = self.get_next_id();
-        self.ind_buf.insert(ind_buf_id(id), indices);
+        self.ind_buf.insert(IndBufId(id), indices);
 
-        ind_buf_id(id)
+        IndBufId(id)
     }
 
     pub fn set_model(&mut self, mat: &Matrix4<f32>) {
@@ -96,13 +99,13 @@ impl Rasterizer {
     }
 
     pub fn clear(&mut self, buff: Buffer) {
-        if (buff & Buffer::Color).0 != 0 {
+        if (buff & Buffer::COLOR).0 != 0 {
             self.frame_buf
                 .iter_mut()
                 .map(|color| *color = Vector3::<f32>::zeros())
                 .count();
         }
-        if (buff & Buffer::Depth).0 != 0 {
+        if (buff & Buffer::DEPTH).0 != 0 {
             self.depth_buf
                 .iter_mut()
                 .map(|depth| *depth = f32::INFINITY)
@@ -114,90 +117,62 @@ impl Rasterizer {
         &self.frame_buf
     }
 
-    pub fn draw(&mut self) {}
-
-    fn draw_line(&mut self, begin: &Vector3<f32>, end: &Vector3<f32>) {
-        let x1: f32 = begin.x;
-        let y1: f32 = begin.y;
-        let x2: f32 = end.x;
-        let y2: f32 = end.y;
-
-        let line_color = Vector3::new(255f32, 255f32, 255f32);
-
-        let mut x;
-        let mut y;
-        let xe;
-        let ye;
-
-        let dx = x2 - x1;
-        let dy = y2 - y1;
-        let dx1 = dx.abs();
-        let dy1 = dy.abs();
-        let mut px = 2.0 * dy1 - dx1;
-        let mut py = 2.0 * dx1 - dy1;
-
-        if dy1 <= dx1 {
-            if dx >= 0.0 {
-                x = x1;
-                y = y1;
-                xe = x2;
-            } else {
-                x = x2;
-                y = y2;
-                xe = x1;
-            }
-            let point = Vector3::new(x, y, 1.0);
-            self.set_pixel(&point, &line_color);
-            while x < xe {
-                x = x + 1.0;
-                if px < 0.0 {
-                    px = px + 2.0 * dy1;
-                } else {
-                    if (dx < 0.0 && dy < 0.0) || (dx > 0.0 && dy > 0.0) {
-                        y = y + 1.0;
-                    } else {
-                        y = y - 1.0;
-                    }
-                    px = px + 2.0 * (dy1 - dx1);
-                }
-
-                let point = Vector3::new(x, y, 1.0);
-                self.set_pixel(&point, &line_color);
-            }
-        } else {
-            if dy >= 0.0 {
-                x = x1;
-                y = y1;
-                ye = y2;
-            } else {
-                x = x2;
-                y = y2;
-                ye = y1;
-            }
-            let point = Vector3::new(x, y, 1.0);
-            self.set_pixel(&point, &line_color);
-            while y < ye {
-                y = y + 1.0;
-                if py <= 0.0 {
-                    py = py + 2.0 * dx1;
-                } else {
-                    if (dx < 0.0 && dy < 0.0) || (dx > 0.0 && dy > 0.0) {
-                        x = x + 1.0;
-                    } else {
-                        x = x - 1.0;
-                    }
-                }
-                let point = Vector3::new(x, y, 1.0);
-                self.set_pixel(&point, &line_color);
-            }
+    pub fn draw(&mut self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
+        if primitive_type == Primitive::TRIANGLE {
+            panic!("Drawing primitives other than triangle is not implemented yet!");
         }
+
+        let pos_buf = self.pos_buf.get(&pos_id).unwrap();
+        let ind_buf = self.ind_buf.get(&ind_id).unwrap();
+
+        let f1 = (100.0 - 0.1) / 2.0;
+        let f2 = (100.0 + 0.1) / 2.0;
+
+        let mvp = self.projection * self.view * self.model;
+
+        let mut v = Vec::new();
+        for ind in ind_buf {
+            v.push(mvp * utility::to_vec4(&pos_buf[ind.x as usize]));
+            v.push(mvp * utility::to_vec4(&pos_buf[ind.y as usize]));
+            v.push(mvp * utility::to_vec4(&pos_buf[ind.z as usize]));
+        }
+
+        for vec in v.iter_mut() {
+            *vec /= vec.w;
+        }
+
+        for vert in v.iter_mut() {
+            vert.x = 0.5 * self.width as f32 * (vert.x + 1.0);
+            vert.y = 0.5 * self.height as f32 * (vert.y + 1.0);
+            vert.z = vert.z * f1 + f2;
+        }
+
+        let mut t = Triangle::new();
+        for i in 0..3 {
+            t.set_vertex(i, &v[i as usize].xyz());
+            t.set_vertex(i, &v[i as usize].xyz());
+            t.set_vertex(i, &v[i as usize].xyz());
+        }
+
+        t.set_color(0, 255.0, 0.0, 0.0);
+        t.set_color(0, 0.0, 255.0, 0.0);
+        t.set_color(0, 0.0, 0.0, 255.0);
+
+        self.rasterize_wireframe(&t);
     }
 
-    fn rasterize_wireframe(tri: &Triangle) {}
+    fn rasterize_wireframe(&mut self, t: &Triangle) {
+        self.draw_line(&t.c(), &t.a());
+        self.draw_line(&t.a(), &t.b());
+        self.draw_line(&t.b(), &t.c());
+    }
 
-    fn get_next_id(&mut self) -> u32 {
-        self.next_id += 1;
-        self.next_id - 1
+    fn draw_line(&mut self, begin: &Vector3<f32>, end: &Vector3<f32>) {
+        utility::draw_line(
+            begin,
+            end,
+            Box::new(|point: &Vector3<f32>, color: &Vector3<f32>| self.set_pixel(point, color)),
+        );
     }
 
     fn get_index(&self, row: i32, col: i32) -> usize {
@@ -205,5 +180,11 @@ impl Rasterizer {
         assert!(col >= 0 && col < self.height as i32);
 
         ((self.height - col as u32) * self.width + row as u32) as usize
+    }
+
+    fn get_next_id(&mut self) -> u32 {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
     }
 }
