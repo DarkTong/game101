@@ -1,20 +1,20 @@
-use nalgebra::*;
+use nalgebra_glm as glm;
 
-pub fn to_vec4(v: &Vector3<f32>) -> Vector4<f32> {
-    Vector4::new(v.x, v.y, v.z, 1.0)
+pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
+    glm::Vec4::new(v.x, v.y, v.z, 1.0)
 }
 
 pub fn draw_line(
-    begin: &Vector3<f32>,
-    end: &Vector3<f32>,
-    mut f_action: Box<dyn FnMut(&Vector3<f32>, &Vector3<f32>) + '_>,
+    begin: &glm::Vec3,
+    end: &glm::Vec3,
+    mut f_action: Box<dyn FnMut(&glm::Vec3, &glm::Vec3) + '_>,
 ) {
     let x1: f32 = begin.x;
     let y1: f32 = begin.y;
     let x2: f32 = end.x;
     let y2: f32 = end.y;
 
-    let line_color = Vector3::new(255f32, 255f32, 255f32);
+    let line_color = glm::Vec3::new(255f32, 255f32, 255f32);
 
     let mut x;
     let mut y;
@@ -38,7 +38,7 @@ pub fn draw_line(
             y = y2;
             xe = x1;
         }
-        let point = Vector3::new(x, y, 1.0);
+        let point = glm::Vec3::new(x, y, 1.0);
         f_action(&point, &line_color);
         while x < xe {
             x = x + 1.0;
@@ -53,7 +53,7 @@ pub fn draw_line(
                 px = px + 2.0 * (dy1 - dx1);
             }
 
-            let point = Vector3::new(x, y, 1.0);
+            let point = glm::Vec3::new(x, y, 1.0);
             f_action(&point, &line_color);
         }
     } else {
@@ -66,7 +66,7 @@ pub fn draw_line(
             y = y2;
             ye = y1;
         }
-        let point = Vector3::new(x, y, 1.0);
+        let point = glm::Vec3::new(x, y, 1.0);
         f_action(&point, &line_color);
         while y < ye {
             y = y + 1.0;
@@ -81,7 +81,7 @@ pub fn draw_line(
                 py = py + 2.0 * (dx1 - dy1);
             }
 
-            let point = Vector3::new(x, y, 1.0);
+            let point = glm::Vec3::new(x, y, 1.0);
             f_action(&point, &line_color);
         }
     }
@@ -93,15 +93,31 @@ mod tests {
 
     #[test]
     fn test_draw_line() {
-        let begin = Vector3::new(0.0, 1.0, 0.0);
-        let end = Vector3::new(6.0, 4.0, 0.0);
+        let begin = glm::Vec3::new(0.0, 1.0, 0.0);
+        let end = glm::Vec3::new(6.0, 4.0, 0.0);
+
+        let mut result = Vec::new();
 
         draw_line(
             &begin,
             &end,
-            Box::new(|point: &Vector3<f32>, _: &Vector3<f32>| {
-                println!("draw point: {:?}", point);
+            Box::new(|point: &glm::Vec3, _: &glm::Vec3| {
+                result.push(point.clone());
+                // println!("draw point: {:?}", point);
             }),
         );
+
+        let check_result = [
+            glm::Vec3::new(0.0, 1.0, 1.0),
+            glm::Vec3::new(1.0, 1.0, 1.0),
+            glm::Vec3::new(2.0, 2.0, 1.0),
+            glm::Vec3::new(3.0, 2.0, 1.0),
+            glm::Vec3::new(4.0, 3.0, 1.0),
+            glm::Vec3::new(5.0, 3.0, 1.0),
+            glm::Vec3::new(6.0, 4.0, 1.0),
+        ];
+        for (idx, p) in check_result.iter().enumerate() {
+            assert_eq!(p, &result[idx]);
+        }
     }
 }

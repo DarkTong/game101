@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use nalgebra::*;
+use nalgebra_glm as glm;
 use std::collections::HashMap;
 
 use crate::{triangle::*, utility};
@@ -40,14 +40,14 @@ pub struct IndBufId(u32);
 
 #[derive(Default)]
 pub struct Rasterizer {
-    model: Matrix4<f32>,
-    view: Matrix4<f32>,
-    projection: Matrix4<f32>,
+    model: glm::Mat4,
+    view: glm::Mat4,
+    projection: glm::Mat4,
 
-    pos_buf: HashMap<PosBufId, Vec<Vector3<f32>>>,
-    ind_buf: HashMap<IndBufId, Vec<Vector3<u32>>>,
+    pos_buf: HashMap<PosBufId, Vec<glm::Vec3>>,
+    ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
 
-    frame_buf: Vec<Vector3<f32>>,
+    frame_buf: Vec<glm::Vec3>,
     depth_buf: Vec<f32>,
 
     width: u32,
@@ -67,33 +67,33 @@ impl Rasterizer {
         }
     }
 
-    pub fn load_position(&mut self, positions: Vec<Vector3<f32>>) -> PosBufId {
+    pub fn load_position(&mut self, positions: Vec<glm::Vec3>) -> PosBufId {
         let id = self.get_next_id();
         self.pos_buf.insert(PosBufId(id), positions);
 
         PosBufId(id)
     }
 
-    pub fn load_indices(&mut self, indices: Vec<Vector3<u32>>) -> IndBufId {
+    pub fn load_indices(&mut self, indices: Vec<glm::U32Vec3>) -> IndBufId {
         let id = self.get_next_id();
         self.ind_buf.insert(IndBufId(id), indices);
 
         IndBufId(id)
     }
 
-    pub fn set_model(&mut self, mat: &Matrix4<f32>) {
+    pub fn set_model(&mut self, mat: &glm::Mat4) {
         self.model = mat.clone();
     }
 
-    pub fn set_view(&mut self, mat: &Matrix4<f32>) {
+    pub fn set_view(&mut self, mat: &glm::Mat4) {
         self.view = mat.clone();
     }
 
-    pub fn set_projection(&mut self, mat: &Matrix4<f32>) {
+    pub fn set_projection(&mut self, mat: &glm::Mat4) {
         self.projection = mat.clone();
     }
 
-    pub fn set_pixel(&mut self, point: &Vector3<f32>, color: &Vector3<f32>) {
+    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::Vec3) {
         let ind = self.get_index(point.x as i32, point.y as i32);
         self.frame_buf[ind] = color.clone();
     }
@@ -102,7 +102,7 @@ impl Rasterizer {
         if (buff & Buffer::COLOR).0 != 0 {
             self.frame_buf
                 .iter_mut()
-                .map(|color| *color = Vector3::<f32>::zeros())
+                .map(|color| *color = glm::Vec3::zeros())
                 .count();
         }
         if (buff & Buffer::DEPTH).0 != 0 {
@@ -113,7 +113,7 @@ impl Rasterizer {
         }
     }
 
-    pub fn frame_buf(&self) -> &Vec<Vector3<f32>> {
+    pub fn frame_buf(&self) -> &Vec<glm::Vec3> {
         &self.frame_buf
     }
 
@@ -167,11 +167,11 @@ impl Rasterizer {
         self.draw_line(&t.b(), &t.c());
     }
 
-    fn draw_line(&mut self, begin: &Vector3<f32>, end: &Vector3<f32>) {
+    fn draw_line(&mut self, begin: &glm::Vec3, end: &glm::Vec3) {
         utility::draw_line(
             begin,
             end,
-            Box::new(|point: &Vector3<f32>, color: &Vector3<f32>| self.set_pixel(point, color)),
+            Box::new(|point: &glm::Vec3, color: &glm::Vec3| self.set_pixel(point, color)),
         );
     }
 
