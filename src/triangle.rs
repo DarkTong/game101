@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use nalgebra_glm as glm;
 pub struct Triangle {
     pub v: [glm::Vec3; 3],
     pub color: [glm::Vec3; 3],
@@ -10,10 +9,10 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn new() -> Triangle {
-        let v = [glm::Vec3::new(0f32, 0f32, 0f32); 3];
-        let color = [glm::Vec3::new(1f32, 1f32, 1f32); 3];
-        let tex_coords = [glm::Vec2::new(0f32, 0f32); 2];
-        let normal = [glm::Vec3::new(1f32, 0f32, 0f32); 3];
+        let v = [glm::vec3(0f32, 0f32, 0f32); 3];
+        let color = [glm::vec3(1f32, 1f32, 1f32); 3];
+        let tex_coords = [glm::vec2(0f32, 0f32); 2];
+        let normal = [glm::vec3(1f32, 0f32, 0f32); 3];
 
         Triangle {
             v,
@@ -47,16 +46,16 @@ impl Triangle {
 
     pub fn set_tex_coord(&mut self, ind: u32, s: f32, t: f32) {
         assert!(ind < 3);
-        self.tex_coords[ind as usize] = glm::Vec2::new(s, t);
+        self.tex_coords[ind as usize] = glm::vec2(s, t);
     }
 
     pub fn set_color(&mut self, ind: u32, r: f32, g: f32, b: f32) {
         assert!(ind < 3);
-        self.color[ind as usize] = glm::Vec3::new(r, g, b);
+        self.color[ind as usize] = glm::vec3(r, g, b);
     }
 
     pub fn to_vector4(&self) -> [glm::Vec4; 3] {
-        let mut v3 = [glm::Vec4::new(0f32, 0f32, 0f32, 0f32); 3];
+        let mut v3 = [glm::vec4(0f32, 0f32, 0f32, 0f32); 3];
         for ind in 0..3 {
             v3[ind].x = self.v[ind].x;
             v3[ind].y = self.v[ind].y;

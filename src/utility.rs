@@ -1,4 +1,3 @@
-use nalgebra_glm as glm;
 
 pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
     glm::Vec4::new(v.x, v.y, v.z, 1.0)
@@ -7,14 +6,14 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
 pub fn draw_line(
     begin: &glm::Vec3,
     end: &glm::Vec3,
-    mut f_action: Box<dyn FnMut(&glm::Vec3, &glm::Vec3) + '_>,
+    mut f_action: Box<dyn FnMut(&glm::Vec3, &glm::U8Vec4) + '_>,
 ) {
     let x1: f32 = begin.x;
     let y1: f32 = begin.y;
     let x2: f32 = end.x;
     let y2: f32 = end.y;
 
-    let line_color = glm::Vec3::new(255f32, 255f32, 255f32);
+    let line_color = glm::vec4(255u8, 255, 255, 255);
 
     let mut x;
     let mut y;
@@ -38,7 +37,7 @@ pub fn draw_line(
             y = y2;
             xe = x1;
         }
-        let point = glm::Vec3::new(x, y, 1.0);
+        let point = glm::vec3(x, y, 1.0);
         f_action(&point, &line_color);
         while x < xe {
             x = x + 1.0;
@@ -53,7 +52,7 @@ pub fn draw_line(
                 px = px + 2.0 * (dy1 - dx1);
             }
 
-            let point = glm::Vec3::new(x, y, 1.0);
+            let point = glm::vec3(x, y, 1.0);
             f_action(&point, &line_color);
         }
     } else {
@@ -66,7 +65,7 @@ pub fn draw_line(
             y = y2;
             ye = y1;
         }
-        let point = glm::Vec3::new(x, y, 1.0);
+        let point = glm::vec3(x, y, 1.0);
         f_action(&point, &line_color);
         while y < ye {
             y = y + 1.0;
@@ -81,7 +80,7 @@ pub fn draw_line(
                 py = py + 2.0 * (dx1 - dy1);
             }
 
-            let point = glm::Vec3::new(x, y, 1.0);
+            let point = glm::vec3(x, y, 1.0);
             f_action(&point, &line_color);
         }
     }
@@ -101,7 +100,7 @@ mod tests {
         draw_line(
             &begin,
             &end,
-            Box::new(|point: &glm::Vec3, _: &glm::Vec3| {
+            Box::new(|point: &glm::Vec3, _| {
                 result.push(point.clone());
                 // println!("draw point: {:?}", point);
             }),

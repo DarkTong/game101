@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use nalgebra_glm as glm;
 use std::collections::HashMap;
 
 use crate::{triangle::*, utility};
@@ -47,7 +46,7 @@ pub struct Rasterizer {
     pos_buf: HashMap<PosBufId, Vec<glm::Vec3>>,
     ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
 
-    frame_buf: Vec<glm::Vec3>,
+    frame_buf: Vec<glm::U8Vec4>,
     depth_buf: Vec<f32>,
 
     width: u32,
@@ -57,12 +56,16 @@ pub struct Rasterizer {
 }
 
 impl Rasterizer {
-    pub fn new(w: u32, h: u32) -> Rasterizer {
+    pub fn new(width: u32, height: u32) -> Rasterizer {
+        let mut frame_buf = Vec::new();
+        let mut depth_buf = Vec::new();
+        frame_buf.resize((width * height) as usize, glm::U8Vec4::zeros());
+        depth_buf.resize((width * height) as usize, 0f32);
         Rasterizer {
-            width: w,
-            height: h,
-            frame_buf: Vec::with_capacity((w * h) as usize),
-            depth_buf: Vec::with_capacity((w * h) as usize),
+            width,
+            height,
+            frame_buf,
+            depth_buf,
             ..Default::default()
         }
     }
@@ -93,7 +96,12 @@ impl Rasterizer {
         self.projection = mat.clone();
     }
 
-    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::Vec3) {
+    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::U8Vec4) {
+        if point.x < 0.0 || point.x > self.width as f32 ||
+            point.y < 0.0 || point.y > self.height as f32 
+        {
+            return;
+        }
         let ind = self.get_index(point.x as i32, point.y as i32);
         self.frame_buf[ind] = color.clone();
     }
@@ -102,7 +110,7 @@ impl Rasterizer {
         if (buff & Buffer::COLOR).0 != 0 {
             self.frame_buf
                 .iter_mut()
-                .map(|color| *color = glm::Vec3::zeros())
+                .map(|color| *color = glm::U8Vec4::zeros())
                 .count();
         }
         if (buff & Buffer::DEPTH).0 != 0 {
@@ -113,12 +121,20 @@ impl Rasterizer {
         }
     }
 
-    pub fn frame_buf(&self) -> &Vec<glm::Vec3> {
+    pub fn frame_buf(&self) -> &Vec<glm::U8Vec4> {
         &self.frame_buf
     }
 
+    pub fn frame_buf_sclice(&self) -> &[u8] {
+        let ptr = self.frame_buf.as_ptr() as *const u8;
+        println!("frame buf size: {}", self.frame_buf.len() * std::mem::size_of::<glm::U8Vec4>());
+        unsafe {
+            std::slice::from_raw_parts(ptr, self.frame_buf.len() * std::mem::size_of::<glm::U8Vec4>())
+        }
+    }
+
     pub fn draw(&mut self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
-        if primitive_type == Primitive::TRIANGLE {
+        if primitive_type != Primitive::TRIANGLE {
             panic!("Drawing primitives other than triangle is not implemented yet!");
         }
 
@@ -142,8 +158,8 @@ impl Rasterizer {
         }
 
         for vert in v.iter_mut() {
-            vert.x = 0.5 * self.width as f32 * (vert.x + 1.0);
-            vert.y = 0.5 * self.height as f32 * (vert.y + 1.0);
+            vert.x = 0.5 * (self.width as f32) * (vert.x + 1.0);
+            vert.y = 0.5 * (self.height as f32) * (vert.y + 1.0);
             vert.z = vert.z * f1 + f2;
         }
 
@@ -171,7 +187,7 @@ impl Rasterizer {
         utility::draw_line(
             begin,
             end,
-            Box::new(|point: &glm::Vec3, color: &glm::Vec3| self.set_pixel(point, color)),
+            Box::new(|point: &glm::Vec3, color: &glm::U8Vec4| self.set_pixel(point, color)),
         );
     }
 

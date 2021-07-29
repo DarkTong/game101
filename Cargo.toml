@@ -7,3 +7,5 @@ edition = "2018"
 
 [dependencies]
 nalgebra-glm = "0.14.0"
+image = "0.23.14"
+
