@@ -6,14 +6,14 @@ pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
 pub fn draw_line(
     begin: &glm::Vec3,
     end: &glm::Vec3,
-    mut f_action: Box<dyn FnMut(&glm::Vec3, &glm::U8Vec4) + '_>,
+    mut f_action: Box<dyn FnMut(&glm::Vec3, &glm::Vec3) + '_>,
 ) {
     let x1: f32 = begin.x;
     let y1: f32 = begin.y;
     let x2: f32 = end.x;
     let y2: f32 = end.y;
 
-    let line_color = glm::vec4(255u8, 255, 255, 255);
+    let line_color = glm::vec3(1.0f32, 1.0f32, 1.0f32);
 
     let mut x;
     let mut y;

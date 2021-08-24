@@ -46,7 +46,7 @@ pub struct Rasterizer {
     pos_buf: HashMap<PosBufId, Vec<glm::Vec3>>,
     ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
 
-    frame_buf: Vec<glm::U8Vec4>,
+    frame_buf: Vec<glm::Vec3>,
     depth_buf: Vec<f32>,
 
     width: u32,
@@ -59,7 +59,7 @@ impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
         let mut frame_buf = Vec::new();
         let mut depth_buf = Vec::new();
-        frame_buf.resize((width * height) as usize, glm::U8Vec4::zeros());
+        frame_buf.resize((width * height) as usize, glm::Vec3::zeros());
         depth_buf.resize((width * height) as usize, 0f32);
         Rasterizer {
             width,
@@ -96,7 +96,7 @@ impl Rasterizer {
         self.projection = mat.clone();
     }
 
-    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::U8Vec4) {
+    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::Vec3) {
         if point.x < 0.0 || point.x > self.width as f32 ||
             point.y < 0.0 || point.y > self.height as f32 
         {
@@ -110,7 +110,7 @@ impl Rasterizer {
         if (buff & Buffer::COLOR).0 != 0 {
             self.frame_buf
                 .iter_mut()
-                .map(|color| *color = glm::U8Vec4::zeros())
+                .map(|color| *color = glm::Vec3::zeros())
                 .count();
         }
         if (buff & Buffer::DEPTH).0 != 0 {
@@ -121,7 +121,7 @@ impl Rasterizer {
         }
     }
 
-    pub fn frame_buf(&self) -> &Vec<glm::U8Vec4> {
+    pub fn frame_buf(&self) -> &Vec<glm::Vec3> {
         &self.frame_buf
     }
 
@@ -131,6 +131,10 @@ impl Rasterizer {
         unsafe {
             std::slice::from_raw_parts(ptr, self.frame_buf.len() * std::mem::size_of::<glm::U8Vec4>())
         }
+    }
+
+    pub unsafe fn frame_buf_ptr(&mut self) -> *mut std::ffi::c_void {
+        self.frame_buf.as_mut_ptr() as *mut std::ffi::c_void
     }
 
     pub fn draw(&mut self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
@@ -187,7 +191,7 @@ impl Rasterizer {
         utility::draw_line(
             begin,
             end,
-            Box::new(|point: &glm::Vec3, color: &glm::U8Vec4| self.set_pixel(point, color)),
+            Box::new(|point: &glm::Vec3, color: &glm::Vec3| self.set_pixel(point, color)),
         );
     }
 

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 extern crate nalgebra_glm as glm;
-extern crate image;
+extern crate opencv;
 
 mod triangle;
 mod rasterizer;
@@ -9,6 +9,7 @@ mod utility;
 
 use triangle::*;
 use rasterizer::*;
+use opencv::{core::{self, CV_32FC2}, highgui, imgcodecs, imgproc, prelude::*, videoio};
 
 fn main(){
     let t = Triangle::new();
@@ -18,7 +19,7 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
-    let command_line = true;
+    let command_line = false;
 
     let width = 300;
     let height = 300;
@@ -56,11 +57,33 @@ fn main(){
 
         rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
 
-        image::save_buffer("output.png", rst.frame_buf_sclice(), width, height, image::ColorType::Rgba8);
-
         return;
     }
 
+    let win_name = "window";
 
+    highgui::named_window(win_name, highgui::WINDOW_NORMAL);
+
+    let mut key = 0i32;
+    while key != 27 {
+        rst.clear(Buffer::DEPTH | Buffer::COLOR);
+
+        rst.set_model(&model_mat);
+        rst.set_view(&view_mat);
+        rst.set_projection(&proj_mat);
+
+        rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
+
+        let mat = unsafe {
+            Mat::new_nd_with_data(
+                &[width as i32, height as i32], CV_32FC2, 
+                rst.frame_buf_ptr(),
+                None).unwrap()
+        };
+
+        highgui::imshow(win_name, &mat);
+
+        key = highgui::wait_key(10).unwrap();
+    }
 
 }
