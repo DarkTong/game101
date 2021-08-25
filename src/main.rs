@@ -9,7 +9,8 @@ mod utility;
 
 use triangle::*;
 use rasterizer::*;
-use opencv::{core::{self, CV_32FC2}, highgui, imgcodecs, imgproc, prelude::*, videoio};
+use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3}, highgui, imgcodecs::{self, IMREAD_COLOR}, imgproc, prelude::*, videoio};
+
 
 fn main(){
     let t = Triangle::new();
@@ -62,7 +63,7 @@ fn main(){
 
     let win_name = "window";
 
-    highgui::named_window(win_name, highgui::WINDOW_NORMAL);
+    highgui::named_window(win_name, highgui::WINDOW_AUTOSIZE).unwrap();
 
     let mut key = 0i32;
     while key != 27 {
@@ -76,14 +77,15 @@ fn main(){
 
         let mat = unsafe {
             Mat::new_nd_with_data(
-                &[width as i32, height as i32], CV_32FC2, 
+                &[width as i32, height as i32], CV_32FC3, 
                 rst.frame_buf_ptr(),
                 None).unwrap()
         };
 
-        highgui::imshow(win_name, &mat);
+        highgui::imshow(win_name, &mat).unwrap();
 
         key = highgui::wait_key(10).unwrap();
+
     }
 
 }
