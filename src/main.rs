@@ -11,6 +11,13 @@ use triangle::*;
 use rasterizer::*;
 use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3}, highgui, imgcodecs::{self, IMREAD_COLOR}, imgproc, prelude::*, videoio};
 
+fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
+    let _mat = glm::Mat4x4::identity();
+    let radians = rotation_angle * 3.14 / 180.0;
+    let _mat = glm::rotate(&_mat, radians, axis);
+
+    return _mat;
+}
 
 fn main(){
     let t = Triangle::new();
@@ -29,9 +36,9 @@ fn main(){
 
     // 组装数据 --begin
     let mut pos = Vec::with_capacity(3);
-    pos.push(glm::vec3(2.0f32, 0.0, -2.0));
-    pos.push(glm::vec3(0.0f32, 2.0, -2.0));
-    pos.push(glm::vec3(-2.0f32, 0.0, -2.0));
+    pos.push(glm::vec3(2.0f32, 0.0, 0.0));
+    pos.push(glm::vec3(0.0f32, 2.0, 0.0));
+    pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
     
     let mut ind = Vec::with_capacity(1);
     ind.push(glm::vec3(0u32, 1, 2));
@@ -66,10 +73,11 @@ fn main(){
     highgui::named_window(win_name, highgui::WINDOW_AUTOSIZE).unwrap();
 
     let mut key = 0i32;
+    let mut angle = 0.;
     while key != 27 {
         rst.clear(Buffer::DEPTH | Buffer::COLOR);
 
-        rst.set_model(&model_mat);
+        rst.set_model(&get_model_matrix(angle, &glm::vec3(0., 1., 0.)));
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
@@ -85,6 +93,13 @@ fn main(){
         highgui::imshow(win_name, &mat).unwrap();
 
         key = highgui::wait_key(10).unwrap();
+
+        if key == ('a' as i32) {
+            angle += 10.0;
+        }
+        else if key == ('d' as i32) {
+            angle -= 10.0;
+        }
 
     }
 
