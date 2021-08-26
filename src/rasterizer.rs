@@ -57,17 +57,22 @@ pub struct Rasterizer {
 
 fn inside_triangle(x: i32, y:i32, _v: &[glm::Vec3; 3]) -> bool {
     let p = glm::vec3(x as f32, y as f32, 1.);
-    let mut result = true;
+    let mut result = 3;
     for i in 0..3 {
         let v0 = _v[i];
         let v1 = _v[(i + 1) % 3];
         let va = p - v0;
         let vb = v1 - v0;
         let vc = glm::cross(&va, &vb);
-        result &= vc.z > 0.;
+        if vc.z > 0. {
+            result = result & 0x2
+        }
+        else {
+            result = result & 0x1
+        }
     }
 
-    return result;
+    return result != 0;
 }
 
 impl Rasterizer {
@@ -193,7 +198,8 @@ impl Rasterizer {
         t.set_color(0, 0.0, 255.0, 0.0);
         t.set_color(0, 0.0, 0.0, 255.0);
 
-        self.rasterize_wireframe(&t);
+        // self.rasterize_wireframe(&t);
+        self.rasterize_triangle(&t);
     }
 
     fn rasterize_wireframe(&mut self, t: &Triangle) {
@@ -222,7 +228,7 @@ impl Rasterizer {
                 let _ok = inside_triangle(x, y, &t.v);
                 if _ok {
                     let idx = self.get_index(x, y) as usize;
-                    self.frame_buf[idx] = t.color[0];
+                    self.frame_buf[idx] = glm::vec3(1f32, 1f32, 1f32);
                 }
             }
         }
