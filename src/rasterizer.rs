@@ -55,6 +55,21 @@ pub struct Rasterizer {
     next_id: u32,
 }
 
+fn inside_triangle(x: i32, y:i32, _v: &[glm::Vec3; 3]) -> bool {
+    let p = glm::vec3(x as f32, y as f32, 1.);
+    let mut result = true;
+    for i in 0..3 {
+        let v0 = _v[i];
+        let v1 = _v[(i + 1) % 3];
+        let va = p - v0;
+        let vb = v1 - v0;
+        let vc = glm::cross(&va, &vb);
+        result &= vc.z > 0.;
+    }
+
+    return result;
+}
+
 impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
         let mut frame_buf = Vec::new();
@@ -186,6 +201,32 @@ impl Rasterizer {
         self.draw_line(&t.a(), &t.b());
         self.draw_line(&t.b(), &t.c());
     }
+
+    fn rasterize_triangle(&mut self, t: &Triangle) {
+        // find aabb
+        let mut lb = glm::vec2(self.width as f32, self.height as f32);
+        let mut rt = glm::vec2(0f32, 0f32);
+
+        for _v in &t.v {
+            lb.x = f32::max(f32::min(lb.x, _v.x), 0f32);
+            lb.y = f32::max(f32::min(lb.y, _v.y), 0f32);
+            rt.x = f32::min(f32::max(rt.x, _v.x), self.width as f32);
+            rt.y = f32::min(f32::max(rt.y, _v.y),  self.height as f32);
+        }
+        
+        let lb = glm::vec2(lb.x as i32, lb.y as i32);
+        let rt = glm::vec2(rt.x as i32, rt.y as i32);
+        
+        for x in lb.x .. rt.x {
+            for y in lb.y .. rt.y {
+                let _ok = inside_triangle(x, y, &t.v);
+                if _ok {
+                    let idx = self.get_index(x, y) as usize;
+                    self.frame_buf[idx] = t.color[0];
+                }
+            }
+        }
+    }   
 
     fn draw_line(&mut self, begin: &glm::Vec3, end: &glm::Vec3) {
         utility::draw_line(
