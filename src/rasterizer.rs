@@ -75,6 +75,13 @@ fn inside_triangle(x: i32, y:i32, _v: &[glm::Vec3; 3]) -> bool {
     return result != 0;
 }
 
+fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
+    let c1 = (x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*y + v[1].x*v[2].y - v[2].x*v[1].y) / (v[0].x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*v[0].y + v[1].x*v[2].y - v[2].x*v[1].y);
+    let c2 = (x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*y + v[2].x*v[0].y - v[0].x*v[2].y) / (v[1].x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*v[1].y + v[2].x*v[0].y - v[0].x*v[2].y);
+    let c3 = (x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*y + v[0].x*v[1].y - v[1].x*v[0].y) / (v[2].x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*v[2].y + v[0].x*v[1].y - v[1].x*v[0].y);
+    return (c1, c2, c3);
+}
+
 impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
         let mut frame_buf = Vec::new();
@@ -227,8 +234,26 @@ impl Rasterizer {
             for y in lb.y .. rt.y {
                 let _ok = inside_triangle(x, y, &t.v);
                 if _ok {
+                    let v = t.to_vector4();
                     let idx = self.get_index(x, y) as usize;
-                    self.frame_buf[idx] = glm::vec3(1f32, 1f32, 1f32);
+                    let (alpha, beta, gamma) = compute_barycentric_2d(x as f32 + 0.5, y as f32 + 0.5, &t.v);
+                    let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
+                    let z_interpolated = 1f32 / z_reciprocal;
+
+                    // z test
+                    if self.depth_buf[idx] < z_interpolated {
+                        // z write
+                        self.depth_buf[idx] = z_interpolated;
+                        // interpolated color
+                        let mut v_color_interpolated = glm::vec3(0f32, 0f32, 0f32);
+                        for i in 0..3 {
+                            v_color_interpolated[i] = 
+                                z_reciprocal * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
+                        }
+
+                        self.frame_buf[idx] = v_color_interpolated;
+
+                    }
                 }
             }
         }
