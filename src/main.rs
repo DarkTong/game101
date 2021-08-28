@@ -9,7 +9,7 @@ mod utility;
 
 use triangle::*;
 use rasterizer::*;
-use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3}, highgui, imgcodecs::{self, IMREAD_COLOR}, imgproc, prelude::*, videoio};
+use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3, Vector}, highgui, imgcodecs::{self, IMREAD_COLOR, imwrite, imwritemulti}, imgproc::{self, COLOR_BGR2RGB, COLOR_RGB2BGR}, prelude::*, videoio};
 
 fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::Mat4x4::identity();
@@ -27,8 +27,8 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
-    // let command_line = true;
-    let command_line = false;
+    let command_line = true;
+    // let command_line = false;
 
     let width = 300;
     let height = 300;
@@ -41,9 +41,9 @@ fn main(){
     pos.push(glm::vec3(2.0f32, 0.0, 0.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
     pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
-    col.push(glm::vec3(0.0f32, 1.0, 0.0));
-    col.push(glm::vec3(0.0f32, 0.0, 1.0));
+    col.push(glm::vec3(255.0f32, 0.0, 0.0));
+    col.push(glm::vec3(0.0f32, 255.0, 0.0));
+    col.push(glm::vec3(0.0f32, 0.0, 255.0));
 
     pos.push(glm::vec3(2.0f32, 2.0, -1.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
@@ -80,8 +80,23 @@ fn main(){
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
+        
         rst.draw(pos_id, ind_id, col_id, Primitive::TRIANGLE);
 
+        let mat = unsafe {
+            Mat::new_nd_with_data(
+                &[width as i32, height as i32], CV_32FC3, 
+                rst.frame_buf_ptr(),
+                None).unwrap()
+        };
+
+        let mut out_mat = Mat::default();
+        mat.convert_to(&mut out_mat, CV_8UC3, 1.0, 0.0).unwrap();
+        println!("{:?}", out_mat);
+
+        let mut params = Vector::new();
+        params.push(COLOR_BGR2RGB);
+        imwrite("output.png", &mat, &params).unwrap();
         return;
     }
 
@@ -106,6 +121,9 @@ fn main(){
                 rst.frame_buf_ptr(),
                 None).unwrap()
         };
+
+        let mut out_mat = Mat::default();
+        mat.convert_to(&mut out_mat, CV_8UC3, 1.0, 0.0).unwrap();
 
         highgui::imshow(win_name, &mat).unwrap();
 
