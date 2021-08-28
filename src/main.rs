@@ -27,6 +27,7 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
+    // let command_line = true;
     let command_line = false;
 
     let width = 300;
@@ -35,17 +36,30 @@ fn main(){
     let mut rst = Rasterizer::new(width, height);
 
     // 组装数据 --begin
-    let mut pos = Vec::with_capacity(3);
+    let mut pos = Vec::with_capacity(6);
+    let mut col = Vec::with_capacity(6);
     pos.push(glm::vec3(2.0f32, 0.0, 0.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
     pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+
+    pos.push(glm::vec3(2.0f32, 2.0, -1.0));
+    pos.push(glm::vec3(0.0f32, 2.0, 0.0));
+    pos.push(glm::vec3(-1.5f32, -1.0, 1.0));
+    col.push(glm::vec3(0.0f32, 1.0, 0.0));
+    col.push(glm::vec3(0.0f32, 1.0, 0.0));
+    col.push(glm::vec3(0.0f32, 1.0, 0.0));
+
     
-    let mut ind = Vec::with_capacity(1);
-    ind.push(glm::vec3(0u32, 1, 2));
+    let mut ind = Vec::with_capacity(2);
+    ind.push(glm::vec3(0, 1, 2));
+    ind.push(glm::vec3(3, 4, 5));
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
-    let eye = glm::vec3(0.0, 0.0, 0.0);
+    let eye = glm::vec3(0.0, 0.0, -5.0);
     let at = glm::vec3(0.0, 0.0, 1.0);
     let up = glm::vec3(0.0, 1.0, 0.0);
     let view_mat = glm::look_at_lh(&eye, &at, &up);
@@ -55,6 +69,7 @@ fn main(){
 
     let pos_id = rst.load_position(pos);
     let ind_id = rst.load_indices(ind);
+    let col_id = rst.load_color(col);
 
     if command_line {
         rst.clear(Buffer::DEPTH | Buffer::COLOR);
@@ -63,7 +78,7 @@ fn main(){
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
-        rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
+        rst.draw(pos_id, ind_id, col_id, Primitive::TRIANGLE);
 
         return;
     }
@@ -81,7 +96,7 @@ fn main(){
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
-        rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
+        rst.draw(pos_id, ind_id, col_id, Primitive::TRIANGLE);
 
         let mat = unsafe {
             Mat::new_nd_with_data(

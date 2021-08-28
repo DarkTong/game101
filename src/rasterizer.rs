@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::{borrow::BorrowMut, collections::HashMap};
+use std::cell::RefCell;
 
 use crate::{triangle::*, utility};
 
@@ -36,6 +37,8 @@ pub enum Primitive {
 pub struct PosBufId(u32);
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct IndBufId(u32);
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct ColBufId(u32);
 
 #[derive(Default)]
 pub struct Rasterizer {
@@ -45,9 +48,10 @@ pub struct Rasterizer {
 
     pos_buf: HashMap<PosBufId, Vec<glm::Vec3>>,
     ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
+    col_buf: HashMap<ColBufId, Vec<glm::Vec3>>,
 
-    frame_buf: Vec<glm::Vec3>,
-    depth_buf: Vec<f32>,
+    frame_buf: RefCell<Vec<glm::Vec3>>,
+    depth_buf: RefCell<Vec<f32>>,
 
     width: u32,
     height: u32,
@@ -84,10 +88,10 @@ fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
 
 impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
-        let mut frame_buf = Vec::new();
-        let mut depth_buf = Vec::new();
-        frame_buf.resize((width * height) as usize, glm::Vec3::zeros());
-        depth_buf.resize((width * height) as usize, 0f32);
+        let mut frame_buf = RefCell::new(Vec::new());
+        let mut depth_buf = RefCell::new(Vec::new());
+        frame_buf.borrow_mut().resize((width * height) as usize, glm::Vec3::zeros());
+        depth_buf.borrow_mut().resize((width * height) as usize, 0f32);
         Rasterizer {
             width,
             height,
@@ -111,6 +115,13 @@ impl Rasterizer {
         IndBufId(id)
     }
 
+    pub fn load_color(&mut self, colors: Vec<glm::Vec3>) -> ColBufId {
+        let id = self.get_next_id();
+        self.col_buf.insert(ColBufId(id), colors);
+
+        ColBufId(id)
+    }
+
     pub fn set_model(&mut self, mat: &glm::Mat4) {
         self.model = mat.clone();
     }
@@ -123,99 +134,97 @@ impl Rasterizer {
         self.projection = mat.clone();
     }
 
-    pub fn set_pixel(&mut self, point: &glm::Vec3, color: &glm::Vec3) {
+    pub fn set_pixel(&self, point: &glm::Vec3, color: &glm::Vec3) {
         if point.x < 0.0 || point.x > self.width as f32 ||
             point.y < 0.0 || point.y > self.height as f32 
         {
             return;
         }
         let ind = self.get_index(point.x as i32, point.y as i32);
-        self.frame_buf[ind] = color.clone();
+        self.frame_buf.borrow_mut()[ind] = color.clone();
     }
 
-    pub fn clear(&mut self, buff: Buffer) {
+    pub fn clear(&self, buff: Buffer) {
         if (buff & Buffer::COLOR).0 != 0 {
-            self.frame_buf
+            self.frame_buf.borrow_mut()
                 .iter_mut()
                 .map(|color| *color = glm::Vec3::zeros())
                 .count();
         }
         if (buff & Buffer::DEPTH).0 != 0 {
-            self.depth_buf
+            self.depth_buf.borrow_mut()
                 .iter_mut()
                 .map(|depth| *depth = f32::INFINITY)
                 .count();
         }
     }
 
-    pub fn frame_buf(&self) -> &Vec<glm::Vec3> {
-        &self.frame_buf
-    }
-
     pub fn frame_buf_sclice(&self) -> &[u8] {
         let ptr = self.frame_buf.as_ptr() as *const u8;
-        println!("frame buf size: {}", self.frame_buf.len() * std::mem::size_of::<glm::U8Vec4>());
+        println!("frame buf size: {}", self.frame_buf.borrow().len() * std::mem::size_of::<glm::U8Vec4>());
         unsafe {
-            std::slice::from_raw_parts(ptr, self.frame_buf.len() * std::mem::size_of::<glm::U8Vec4>())
+            std::slice::from_raw_parts(ptr, self.frame_buf.borrow().len() * std::mem::size_of::<glm::U8Vec4>())
         }
     }
 
     pub unsafe fn frame_buf_ptr(&mut self) -> *mut std::ffi::c_void {
-        self.frame_buf.as_mut_ptr() as *mut std::ffi::c_void
+        self.frame_buf.borrow_mut().as_mut_ptr() as *mut std::ffi::c_void
     }
 
-    pub fn draw(&mut self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
+    pub fn draw(&self, pos_id: PosBufId, ind_id: IndBufId, col_id: ColBufId, primitive_type: Primitive) {
         if primitive_type != Primitive::TRIANGLE {
             panic!("Drawing primitives other than triangle is not implemented yet!");
         }
 
         let pos_buf = self.pos_buf.get(&pos_id).unwrap();
         let ind_buf = self.ind_buf.get(&ind_id).unwrap();
+        let col_buf = self.col_buf.get(&col_id).unwrap();
 
         let f1 = (100.0 - 0.1) / 2.0;
         let f2 = (100.0 + 0.1) / 2.0;
 
-        let mvp = self.projection * self.view * self.model;
+        let pvm = self.projection * self.view * self.model;
 
-        let mut v = Vec::new();
         for ind in ind_buf {
-            v.push(mvp * utility::to_vec4(&pos_buf[ind.x as usize]));
-            v.push(mvp * utility::to_vec4(&pos_buf[ind.y as usize]));
-            v.push(mvp * utility::to_vec4(&pos_buf[ind.z as usize]));
+            let mut v = Vec::new();
+
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.x as usize]));
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.y as usize]));
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.z as usize]));
+            // println!("pos:{:?}", v);
+
+            for vec in v.iter_mut() {
+                *vec /= vec.w;
+            }
+
+            for vert in v.iter_mut() {
+                vert.x = 0.5 * (self.width as f32) * (vert.x + 1.0);
+                vert.y = 0.5 * (self.height as f32) * (vert.y + 1.0);
+                vert.z = vert.z * f1 + f2;
+            }
+
+            let mut t = Triangle::new();
+            for i in 0..3 {
+                t.set_vertex(i, &v[i as usize].xyz());
+                t.set_color(i, 
+                    col_buf[ind[i as usize] as usize].x,
+                    col_buf[ind[i as usize] as usize].y,
+                    col_buf[ind[i as usize] as usize].z
+                );
+            }
+
+            // self.rasterize_wireframe(&t);
+            self.rasterize_triangle(&t);
         }
-
-        for vec in v.iter_mut() {
-            *vec /= vec.w;
-        }
-
-        for vert in v.iter_mut() {
-            vert.x = 0.5 * (self.width as f32) * (vert.x + 1.0);
-            vert.y = 0.5 * (self.height as f32) * (vert.y + 1.0);
-            vert.z = vert.z * f1 + f2;
-        }
-
-        let mut t = Triangle::new();
-        for i in 0..3 {
-            t.set_vertex(i, &v[i as usize].xyz());
-            t.set_vertex(i, &v[i as usize].xyz());
-            t.set_vertex(i, &v[i as usize].xyz());
-        }
-
-        t.set_color(0, 255.0, 0.0, 0.0);
-        t.set_color(0, 0.0, 255.0, 0.0);
-        t.set_color(0, 0.0, 0.0, 255.0);
-
-        // self.rasterize_wireframe(&t);
-        self.rasterize_triangle(&t);
     }
 
-    fn rasterize_wireframe(&mut self, t: &Triangle) {
+    fn rasterize_wireframe(&self, t: &Triangle) {
         self.draw_line(&t.c(), &t.a());
         self.draw_line(&t.a(), &t.b());
         self.draw_line(&t.b(), &t.c());
     }
 
-    fn rasterize_triangle(&mut self, t: &Triangle) {
+    fn rasterize_triangle(&self, t: &Triangle) {
         // find aabb
         let mut lb = glm::vec2(self.width as f32, self.height as f32);
         let mut rt = glm::vec2(0f32, 0f32);
@@ -230,28 +239,31 @@ impl Rasterizer {
         let lb = glm::vec2(lb.x as i32, lb.y as i32);
         let rt = glm::vec2(rt.x as i32, rt.y as i32);
         
+        let v = t.to_vector4();
+        // println!("tri v3:{:?}", &t.v);
+        // println!("tri c3:{:?}", &t.color);
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
                 let _ok = inside_triangle(x, y, &t.v);
                 if _ok {
-                    let v = t.to_vector4();
                     let idx = self.get_index(x, y) as usize;
                     let (alpha, beta, gamma) = compute_barycentric_2d(x as f32 + 0.5, y as f32 + 0.5, &t.v);
                     let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
                     let z_interpolated = 1f32 / z_reciprocal;
-
+                    
                     // z test
-                    if self.depth_buf[idx] < z_interpolated {
+                    if z_interpolated < self.depth_buf.borrow_mut()[idx] {
                         // z write
-                        self.depth_buf[idx] = z_interpolated;
+                        self.depth_buf.borrow_mut()[idx] = z_interpolated;
                         // interpolated color
-                        let mut v_color_interpolated = glm::vec3(0f32, 0f32, 0f32);
+                        let mut v_color_interpolated = glm::vec3(1.0f32, 1.0, 1.0);
                         for i in 0..3 {
                             v_color_interpolated[i] = 
-                                z_reciprocal * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
+                                z_interpolated * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
                         }
+                        // println!("({}, {}) -> ({}, {}, {}), {}, {:?}", x, y, alpha, beta, gamma, z_reciprocal, v_color_interpolated);
 
-                        self.frame_buf[idx] = v_color_interpolated;
+                        self.frame_buf.borrow_mut()[idx] = v_color_interpolated;
 
                     }
                 }
@@ -259,7 +271,7 @@ impl Rasterizer {
         }
     }   
 
-    fn draw_line(&mut self, begin: &glm::Vec3, end: &glm::Vec3) {
+    fn draw_line(&self, begin: &glm::Vec3, end: &glm::Vec3) {
         utility::draw_line(
             begin,
             end,
