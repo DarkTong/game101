@@ -59,12 +59,14 @@ fn main(){
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
-    let eye = glm::vec3(0.0, 0.0, -5.0);
+    let eye = glm::vec3(0.0, 0.0, -10.0);
     let at = glm::vec3(0.0, 0.0, 1.0);
     let up = glm::vec3(0.0, 1.0, 0.0);
     let view_mat = glm::look_at_lh(&eye, &at, &up);
     // 投影
-    let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
+    // let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
+    let proj_mat = 
+        glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
     // 组装数据 --end
 
     let pos_id = rst.load_position(pos);
