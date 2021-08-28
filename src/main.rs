@@ -42,8 +42,8 @@ fn main(){
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
     pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
     col.push(glm::vec3(1.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+    col.push(glm::vec3(0.0f32, 1.0, 0.0));
+    col.push(glm::vec3(0.0f32, 0.0, 1.0));
 
     pos.push(glm::vec3(2.0f32, 2.0, -1.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
@@ -55,7 +55,7 @@ fn main(){
     
     let mut ind = Vec::with_capacity(2);
     ind.push(glm::vec3(0, 1, 2));
-    ind.push(glm::vec3(3, 4, 5));
+    // ind.push(glm::vec3(3, 4, 5));
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
