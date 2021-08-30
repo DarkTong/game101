@@ -59,8 +59,8 @@ pub struct Rasterizer {
     next_id: u32,
 }
 
-fn inside_triangle(x: i32, y:i32, _v: &[glm::Vec3; 3]) -> bool {
-    let p = glm::vec3(x as f32, y as f32, 1.);
+fn inside_triangle(x: f32, y:f32, _v: &[glm::Vec3; 3]) -> bool {
+    let p = glm::vec3(x, y, 1.);
     let mut result = 3;
     for i in 0..3 {
         let v0 = _v[i];
@@ -242,30 +242,55 @@ impl Rasterizer {
         let v = t.to_vector4();
         // println!("tri v3:{:?}", &t.v);
         // println!("tri c3:{:?}", &t.color);
+        let sample_list = [
+            (0.25f32, 0.25),
+            (0.25f32, 0.75),
+            (0.75f32, 0.25),
+            (0.75f32, 0.75),
+
+        ];
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
-                let _ok = inside_triangle(x, y, &t.v);
-                if _ok {
-                    let idx = self.get_index(x, y) as usize;
-                    let (alpha, beta, gamma) = compute_barycentric_2d(x as f32 + 0.5, y as f32 + 0.5, &t.v);
-                    let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
-                    let z_interpolated = 1f32 / z_reciprocal;
-                    
-                    // z test
-                    if z_interpolated < self.depth_buf.borrow_mut()[idx] {
-                        // z write
-                        self.depth_buf.borrow_mut()[idx] = z_interpolated;
-                        // interpolated color
-                        let mut v_color_interpolated = glm::vec3(1.0f32, 1.0, 1.0);
-                        for i in 0..3 {
-                            v_color_interpolated[i] = 
-                                z_interpolated * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
+                let idx = self.get_index(x, y) as usize;
+                let mut result_color = glm::vec3(0f32, 0., 0.);
+                let mut result_depth = 0f32;
+                let mut cnt = 0u32;
+                for (off_x, off_y) in sample_list {
+                    let (_x, _y) = (x as f32 + off_x, y as f32 + off_y);
+                    let mut _ok = inside_triangle(_x, _y, &t.v);
+                    if _ok {
+                        let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
+                        let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
+                        let z_interpolated = 1f32 / z_reciprocal;
+
+                        // z test
+                        if z_interpolated < self.depth_buf.borrow_mut()[idx] {
+                            // z write
+                            result_depth += z_interpolated;
+                            // interpolated color
+                            let mut v_color_interpolated = glm::vec3(1.0f32, 1.0, 1.0);
+                            for i in 0..3 {
+                                v_color_interpolated[i] = 
+                                    z_interpolated * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
+                            }
+                            // println!("({}, {}) -> ({}, {}, {}), {}, {:?}", x, y, alpha, beta, gamma, z_reciprocal, v_color_interpolated);
+
+                            result_color += v_color_interpolated / 4.0;
+                            cnt += 1u32;
                         }
-                        // println!("({}, {}) -> ({}, {}, {}), {}, {:?}", x, y, alpha, beta, gamma, z_reciprocal, v_color_interpolated);
-
-                        self.frame_buf.borrow_mut()[idx] = v_color_interpolated;
-
+                        else {
+                            _ok = false;
+                        }
                     }
+
+                    if !_ok {
+                        result_color += self.frame_buf.borrow()[idx];
+                        result_depth += self.depth_buf.borrow()[idx];
+                    }
+                }
+                if cnt > 2 {
+                    self.frame_buf.borrow_mut()[idx] = result_color;
+                    self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
                 }
             }
         }

@@ -27,8 +27,8 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
-    let command_line = true;
-    // let command_line = false;
+    // let command_line = true;
+    let command_line = false;
 
     let width = 300;
     let height = 300;
@@ -41,9 +41,9 @@ fn main(){
     pos.push(glm::vec3(2.0f32, 0.0, 0.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
     pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
-    col.push(glm::vec3(255.0f32, 0.0, 0.0));
-    col.push(glm::vec3(0.0f32, 255.0, 0.0));
-    col.push(glm::vec3(0.0f32, 0.0, 255.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
+    col.push(glm::vec3(1.0f32, 0.0, 0.0));
 
     pos.push(glm::vec3(2.0f32, 2.0, -1.0));
     pos.push(glm::vec3(0.0f32, 2.0, 0.0));
@@ -55,7 +55,7 @@ fn main(){
     
     let mut ind = Vec::with_capacity(2);
     ind.push(glm::vec3(0, 1, 2));
-    // ind.push(glm::vec3(3, 4, 5));
+    ind.push(glm::vec3(3, 4, 5));
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
@@ -64,9 +64,9 @@ fn main(){
     let up = glm::vec3(0.0, 1.0, 0.0);
     let view_mat = glm::look_at_lh(&eye, &at, &up);
     // 投影
-    // let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
-    let proj_mat = 
-        glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
+    let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
+    // let proj_mat = 
+    //     glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
     // 组装数据 --end
 
     let pos_id = rst.load_position(pos);
@@ -102,7 +102,7 @@ fn main(){
 
     let win_name = "window";
 
-    highgui::named_window(win_name, highgui::WINDOW_AUTOSIZE).unwrap();
+    highgui::named_window(win_name, highgui::WINDOW_NORMAL).unwrap();
 
     let mut key = 0i32;
     let mut angle = 0.;
@@ -123,9 +123,9 @@ fn main(){
         };
 
         let mut out_mat = Mat::default();
-        mat.convert_to(&mut out_mat, CV_8UC3, 1.0, 0.0).unwrap();
+        mat.convert_to(&mut out_mat, CV_8UC3, 255.0, 0.0).unwrap();
 
-        highgui::imshow(win_name, &mat).unwrap();
+        highgui::imshow(win_name, &out_mat).unwrap();
 
         key = highgui::wait_key(10).unwrap();
 
