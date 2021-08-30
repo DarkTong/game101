@@ -243,11 +243,11 @@ impl Rasterizer {
         // println!("tri v3:{:?}", &t.v);
         // println!("tri c3:{:?}", &t.color);
         let sample_list = [
-            (0.25f32, 0.25),
-            (0.25f32, 0.75),
-            (0.75f32, 0.25),
-            (0.75f32, 0.75),
-
+            (0.5f32, 0.5f32),
+            // (0.25f32, 0.25),
+            // (0.25f32, 0.75),
+            // (0.75f32, 0.25),
+            // (0.75f32, 0.75),
         ];
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
@@ -275,7 +275,7 @@ impl Rasterizer {
                             }
                             // println!("({}, {}) -> ({}, {}, {}), {}, {:?}", x, y, alpha, beta, gamma, z_reciprocal, v_color_interpolated);
 
-                            result_color += v_color_interpolated / 4.0;
+                            result_color += v_color_interpolated / sample_list.len() as f32;
                             cnt += 1u32;
                         }
                         else {
@@ -288,7 +288,7 @@ impl Rasterizer {
                         result_depth += self.depth_buf.borrow()[idx];
                     }
                 }
-                if cnt > 2 {
+                if cnt >= (sample_list.len() as u32) / 2 {
                     self.frame_buf.borrow_mut()[idx] = result_color;
                     self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
                 }
