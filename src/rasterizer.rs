@@ -84,6 +84,18 @@ fn inside_triangle(x: f32, y:f32, _v: &[glm::Vec3; 3]) -> bool {
     return result != 0;
 }
 
+fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &glm::Vec3, pos: &[glm::Vec3;3]) -> glm::Vec3{
+    let mut out_v = glm::vec3(0f32, 0f32, 0f32);
+    for i in 0..3usize {
+        out_v[i] =
+            barycentric[0]*value[0][i]/pos[0].z +
+            barycentric[1]*value[1][i]/pos[1].z +
+            barycentric[2]*value[2][i]/pos[2].z;
+        out_v[i] *= z_interpolated;
+    }
+    return out_v;
+}
+
 fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
     let c1 = (x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*y + v[1].x*v[2].y - v[2].x*v[1].y) / (v[0].x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*v[0].y + v[1].x*v[2].y - v[2].x*v[1].y);
     let c2 = (x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*y + v[2].x*v[0].y - v[0].x*v[2].y) / (v[1].x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*v[1].y + v[2].x*v[0].y - v[0].x*v[2].y);
@@ -201,12 +213,13 @@ impl Rasterizer {
             }
 
             let mut t = Triangle::new();
-            for i in 0..3 {
-                t.set_vertex(i, &v[i as usize].xyz());
+            for i in 0..3usize {
+                t.set_vertex(i, &v[i].xyz());
                 t.set_color(i,
-                            pos_buf[ind[i as usize] as usize].color.x,
-                            pos_buf[ind[i as usize] as usize].color.y,
-                            pos_buf[ind[i as usize] as usize].color.z);
+                            pos_buf[ind[i] as usize].color.x,
+                            pos_buf[ind[i] as usize].color.y,
+                            pos_buf[ind[i] as usize].color.z);
+                t.set_normal(i, &pos_buf[ind[i] as usize].normal);
             }
 
             // self.rasterize_wireframe(&t);
@@ -249,6 +262,8 @@ impl Rasterizer {
             for y in lb.y .. rt.y {
                 let idx = self.get_index(x, y) as usize;
                 let mut result_color = glm::vec3(0f32, 0., 0.);
+                let mut result_normal = glm::vec3(0f32, 0., 0.);
+                let mut result_tex_coord = glm::vec3(0f32, 0., 0.);
                 let mut result_depth = 0f32;
                 let mut cnt = 0u32;
                 for (off_x, off_y) in sample_list {
@@ -256,6 +271,7 @@ impl Rasterizer {
                     let mut _ok = inside_triangle(_x, _y, &t.v);
                     if _ok {
                         let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
+                        let barycentric = glm::vec3(alpha, beta, gamma);
                         let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
                         let z_interpolated = 1f32 / z_reciprocal;
 
@@ -264,14 +280,19 @@ impl Rasterizer {
                             // z write
                             result_depth += z_interpolated;
                             // interpolated color
-                            let mut v_color_interpolated = glm::vec3(1.0f32, 1.0, 1.0);
-                            for i in 0..3 {
-                                v_color_interpolated[i] = 
-                                    z_interpolated * (alpha*t.color[0][i]/v[0].z + beta*t.color[1][i]/v[1].z + gamma*t.color[2][i]/v[2].z);
-                            }
-                            // println!("({}, {}) -> ({}, {}, {}), {}, {:?}", x, y, alpha, beta, gamma, z_reciprocal, v_color_interpolated);
+                            let color_interpolated = interpolated_value(
+                                &t.color, z_interpolated, &barycentric, &t.v
+                            );
+                            let normal_interpolated = interpolated_value(
+                                &t.normal, z_interpolated, &barycentric, &t.v
+                            );
+                            let tex_coord_interpolated = interpolated_value(
+                                &t.tex_coords, z_interpolated, &barycentric, &t.v
+                            );
 
-                            result_color += v_color_interpolated / sample_list.len() as f32;
+                            result_color += color_interpolated / sample_list.len() as f32;
+                            result_normal += normal_interpolated / sample_list.len() as f32;
+                            result_tex_coord += tex_coord_interpolated / sample_list.len() as f32;
                             cnt += 1u32;
                         }
                         else {
@@ -286,6 +307,8 @@ impl Rasterizer {
                 }
                 if cnt >= (sample_list.len() as u32) / 2 {
                     self.frame_buf.borrow_mut()[idx] = result_color;
+                    // self.frame_buf.borrow_mut()[idx] = result_normal;
+                    // self.frame_buf.borrow_mut()[idx] = result_tex_coord;
                     self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
                 }
             }

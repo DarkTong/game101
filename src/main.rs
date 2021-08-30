@@ -21,7 +21,7 @@ fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     return _mat;
 }
 
-fn load_mesh(path: String) -> obj::ObjResult<Vec<SVertex>> {
+fn load_mesh(path: String) -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)> {
     use obj::*;
 
     let _file = std::fs::File::open(path)?;
@@ -41,10 +41,19 @@ fn load_mesh(path: String) -> obj::ObjResult<Vec<SVertex>> {
         });
     }
 
-    return Ok(mesh)
+    let mut indices = Vec::with_capacity(wf_obj.indices.len());
+    for i in 0..wf_obj.indices.len()/3 {
+        indices.push(glm::vec3(
+           wf_obj.indices[i*3 + 0] as u32,
+           wf_obj.indices[i*3 + 1] as u32,
+           wf_obj.indices[i*3 + 2] as u32,
+        ));
+    }
+
+    return Ok((mesh, indices))
 }
 
-fn load_static_mesh() -> obj::ObjResult<Vec<SVertex>>{
+fn load_static_mesh() -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)>{
     let mut mesh = Vec::with_capacity(6);
     mesh.push(SVertex{
         pos: glm::vec3(2.0f32, 0.0, 0.0),
@@ -53,12 +62,12 @@ fn load_static_mesh() -> obj::ObjResult<Vec<SVertex>>{
     });
     mesh.push(SVertex{
         pos: glm::vec3(0.0f32, 2.0, 0.0),
-        color: glm::vec3(1.0f32, 0.0, 0.0),
+        color: glm::vec3(0.0f32, 1.0, 0.0),
         ..Default::default()
     });
     mesh.push(SVertex{
         pos: glm::vec3(-2.0f32, 0.0, 0.0),
-        color: glm::vec3(1.0f32, 0.0, 0.0),
+        color: glm::vec3(0.0f32, 0.0, 1.0),
         ..Default::default()
     });
 
@@ -78,10 +87,15 @@ fn load_static_mesh() -> obj::ObjResult<Vec<SVertex>>{
         ..Default::default()
     });
 
-    return Ok(mesh);
+    let mut ind = Vec::with_capacity(2);
+    ind.push(glm::vec3(0, 1, 2));
+    ind.push(glm::vec3(3, 4, 5));
+
+    return Ok((mesh, ind));
 }
 
 fn main(){
+    println!("{:?}", std::fs::canonicalize("."));
     let t = Triangle::new();
     let b1 = Buffer::COLOR;
     let b2 = Buffer::DEPTH;
@@ -98,10 +112,8 @@ fn main(){
     let mut rst = Rasterizer::new(width, height);
 
     // 组装数据 --begin
-    let mut pos = load_static_mesh().unwrap();
-    let mut ind = Vec::with_capacity(2);
-    ind.push(glm::vec3(0, 1, 2));
-    ind.push(glm::vec3(3, 4, 5));
+    // let (pos, ind) = load_static_mesh().unwrap();
+    let (pos, ind) = load_mesh("./models/cube/cube.obj".to_string()).unwrap();
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
