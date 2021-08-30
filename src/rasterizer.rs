@@ -46,7 +46,15 @@ pub struct SVertex {
     pub color: glm::Vec3,
 }
 
-#[derive(Default)]
+#[dervie(Default)]
+pub struct SVertex {
+    pub pos: glm::Vec3,
+    pub normal: glm::Vec3,
+    pub uv: glm::Vec3,
+    pub color: glm::Vec3,
+}
+
+#[derive(Default, Clone, Copy)]
 pub struct Rasterizer {
     model: glm::Mat4,
     view: glm::Mat4,
