@@ -8,5 +8,6 @@ edition = "2018"
 [dependencies]
 nalgebra-glm = "0.14.0"
 opencv = "0.53.1"
+obj-rs = "0.6.3"
 # opencv = {version = "0.53.1", features = ["buildtime-bindgen"]}
 # opencv = {version = "0.53.1", default-features = false, features = ["buildtime-bindgen"]}
