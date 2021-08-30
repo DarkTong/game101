@@ -37,8 +37,14 @@ pub enum Primitive {
 pub struct PosBufId(u32);
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct IndBufId(u32);
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct ColBufId(u32);
+
+#[derive(Default, Clone, Copy)]
+pub struct SVertex {
+    pub pos: glm::Vec3,
+    pub normal: glm::Vec3,
+    pub uv: glm::Vec3,
+    pub color: glm::Vec3,
+}
 
 #[derive(Default)]
 pub struct Rasterizer {
@@ -46,9 +52,8 @@ pub struct Rasterizer {
     view: glm::Mat4,
     projection: glm::Mat4,
 
-    pos_buf: HashMap<PosBufId, Vec<glm::Vec3>>,
+    pos_buf: HashMap<PosBufId, Vec<SVertex>>,
     ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
-    col_buf: HashMap<ColBufId, Vec<glm::Vec3>>,
 
     frame_buf: RefCell<Vec<glm::Vec3>>,
     depth_buf: RefCell<Vec<f32>>,
@@ -101,7 +106,7 @@ impl Rasterizer {
         }
     }
 
-    pub fn load_position(&mut self, positions: Vec<glm::Vec3>) -> PosBufId {
+    pub fn load_position(&mut self, positions: Vec<SVertex>) -> PosBufId {
         let id = self.get_next_id();
         self.pos_buf.insert(PosBufId(id), positions);
 
@@ -113,13 +118,6 @@ impl Rasterizer {
         self.ind_buf.insert(IndBufId(id), indices);
 
         IndBufId(id)
-    }
-
-    pub fn load_color(&mut self, colors: Vec<glm::Vec3>) -> ColBufId {
-        let id = self.get_next_id();
-        self.col_buf.insert(ColBufId(id), colors);
-
-        ColBufId(id)
     }
 
     pub fn set_model(&mut self, mat: &glm::Mat4) {
@@ -171,14 +169,13 @@ impl Rasterizer {
         self.frame_buf.borrow_mut().as_mut_ptr() as *mut std::ffi::c_void
     }
 
-    pub fn draw(&self, pos_id: PosBufId, ind_id: IndBufId, col_id: ColBufId, primitive_type: Primitive) {
+    pub fn draw(&self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
         if primitive_type != Primitive::TRIANGLE {
             panic!("Drawing primitives other than triangle is not implemented yet!");
         }
 
         let pos_buf = self.pos_buf.get(&pos_id).unwrap();
         let ind_buf = self.ind_buf.get(&ind_id).unwrap();
-        let col_buf = self.col_buf.get(&col_id).unwrap();
 
         let f1 = (100.0 - 0.1) / 2.0;
         let f2 = (100.0 + 0.1) / 2.0;
@@ -188,9 +185,9 @@ impl Rasterizer {
         for ind in ind_buf {
             let mut v = Vec::new();
 
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.x as usize]));
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.y as usize]));
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.z as usize]));
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.x as usize].pos));
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.y as usize].pos));
+            v.push(pvm * utility::to_vec4(&pos_buf[ind.z as usize].pos));
             // println!("pos:{:?}", v);
 
             for vec in v.iter_mut() {
@@ -206,11 +203,10 @@ impl Rasterizer {
             let mut t = Triangle::new();
             for i in 0..3 {
                 t.set_vertex(i, &v[i as usize].xyz());
-                t.set_color(i, 
-                    col_buf[ind[i as usize] as usize].x,
-                    col_buf[ind[i as usize] as usize].y,
-                    col_buf[ind[i as usize] as usize].z
-                );
+                t.set_color(i,
+                            pos_buf[ind[i as usize] as usize].color.x,
+                            pos_buf[ind[i as usize] as usize].color.y,
+                            pos_buf[ind[i as usize] as usize].color.z);
             }
 
             // self.rasterize_wireframe(&t);

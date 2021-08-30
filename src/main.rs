@@ -10,6 +10,8 @@ mod utility;
 use triangle::*;
 use rasterizer::*;
 use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3, Vector}, highgui, imgcodecs::{self, IMREAD_COLOR, imwrite, imwritemulti}, imgproc::{self, COLOR_BGR2RGB, COLOR_RGB2BGR}, prelude::*, videoio};
+use std::io::BufReader;
+use std::default;
 
 fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::Mat4x4::identity();
@@ -17,6 +19,66 @@ fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::rotate(&_mat, radians, axis);
 
     return _mat;
+}
+
+fn load_mesh(path: String) -> obj::ObjResult<Vec<SVertex>> {
+    use obj::*;
+
+    let _file = std::fs::File::open(path)?;
+    let read_buf = BufReader::new(_file);
+
+    let wf_obj: Obj<TexturedVertex> = load_obj(read_buf)?;
+
+    let mut mesh = Vec::with_capacity(wf_obj.vertices.len());
+
+    for wf_v in &wf_obj.vertices {
+        let pos = glm::vec3(wf_v.position[0], wf_v.position[1], wf_v.position[2]);
+        let normal = glm::vec3(wf_v.normal[0], wf_v.normal[1], wf_v.normal[2]);
+        let uv = glm::vec3(wf_v.texture[0], wf_v.texture[1], wf_v.texture[2]);
+        let color = glm::vec3(1.0f32, 1.0, 1.0);
+        mesh.push(SVertex{
+            pos, normal, uv, color
+        });
+    }
+
+    return Ok(mesh)
+}
+
+fn load_static_mesh() -> obj::ObjResult<Vec<SVertex>>{
+    let mut mesh = Vec::with_capacity(6);
+    mesh.push(SVertex{
+        pos: glm::vec3(2.0f32, 0.0, 0.0),
+        color: glm::vec3(1.0f32, 0.0, 0.0),
+        ..Default::default()
+    });
+    mesh.push(SVertex{
+        pos: glm::vec3(0.0f32, 2.0, 0.0),
+        color: glm::vec3(1.0f32, 0.0, 0.0),
+        ..Default::default()
+    });
+    mesh.push(SVertex{
+        pos: glm::vec3(-2.0f32, 0.0, 0.0),
+        color: glm::vec3(1.0f32, 0.0, 0.0),
+        ..Default::default()
+    });
+
+    mesh.push(SVertex{
+        pos: glm::vec3(2.0f32, 2.0, -1.0),
+        color: glm::vec3(0.0f32, 1.0, 0.0),
+        ..Default::default()
+    });
+    mesh.push(SVertex{
+        pos: glm::vec3(0.0f32, 2.0, 0.0),
+        color: glm::vec3(0.0f32, 1.0, 0.0),
+        ..Default::default()
+    });
+    mesh.push(SVertex{
+        pos: glm::vec3(-1.5f32, -1.0, 1.0),
+        color: glm::vec3(0.0f32, 1.0, 0.0),
+        ..Default::default()
+    });
+
+    return Ok(mesh);
 }
 
 fn main(){
@@ -36,23 +98,7 @@ fn main(){
     let mut rst = Rasterizer::new(width, height);
 
     // 组装数据 --begin
-    let mut pos = Vec::with_capacity(6);
-    let mut col = Vec::with_capacity(6);
-    pos.push(glm::vec3(2.0f32, 0.0, 0.0));
-    pos.push(glm::vec3(0.0f32, 2.0, 0.0));
-    pos.push(glm::vec3(-2.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
-    col.push(glm::vec3(1.0f32, 0.0, 0.0));
-
-    pos.push(glm::vec3(2.0f32, 2.0, -1.0));
-    pos.push(glm::vec3(0.0f32, 2.0, 0.0));
-    pos.push(glm::vec3(-1.5f32, -1.0, 1.0));
-    col.push(glm::vec3(0.0f32, 1.0, 0.0));
-    col.push(glm::vec3(0.0f32, 1.0, 0.0));
-    col.push(glm::vec3(0.0f32, 1.0, 0.0));
-
-    
+    let mut pos = load_static_mesh().unwrap();
     let mut ind = Vec::with_capacity(2);
     ind.push(glm::vec3(0, 1, 2));
     ind.push(glm::vec3(3, 4, 5));
@@ -71,7 +117,6 @@ fn main(){
 
     let pos_id = rst.load_position(pos);
     let ind_id = rst.load_indices(ind);
-    let col_id = rst.load_color(col);
 
     if command_line {
         rst.clear(Buffer::DEPTH | Buffer::COLOR);
@@ -81,7 +126,7 @@ fn main(){
         rst.set_projection(&proj_mat);
 
         
-        rst.draw(pos_id, ind_id, col_id, Primitive::TRIANGLE);
+        rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
 
         let mat = unsafe {
             Mat::new_nd_with_data(
@@ -113,7 +158,7 @@ fn main(){
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
-        rst.draw(pos_id, ind_id, col_id, Primitive::TRIANGLE);
+        rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
 
         let mat = unsafe {
             Mat::new_nd_with_data(
