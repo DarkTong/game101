@@ -3,6 +3,8 @@
 extern crate nalgebra_glm as glm;
 extern crate opencv;
 
+mod shader;
+mod shader_program;
 mod triangle;
 mod rasterizer;
 mod utility;
@@ -114,6 +116,7 @@ fn main(){
     // 组装数据 --begin
     // let (pos, ind) = load_static_mesh().unwrap();
     let (pos, ind) = load_mesh("./models/cube/cube.obj".to_string()).unwrap();
+    println!("{:?}", pos);
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机

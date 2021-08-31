@@ -2,8 +2,13 @@
 
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::cell::RefCell;
+use std::default::Default;
 
-use crate::{triangle::*, utility};
+use crate::{
+    triangle::*, utility,
+    shader::*,
+    shader_program::*
+};
 
 #[derive(Default, Clone, Copy)]
 pub struct Buffer(u32);
@@ -38,7 +43,7 @@ pub struct PosBufId(u32);
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct IndBufId(u32);
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct SVertex {
     pub pos: glm::Vec3,
     pub normal: glm::Vec3,
@@ -46,7 +51,6 @@ pub struct SVertex {
     pub color: glm::Vec3,
 }
 
-#[derive(Default)]
 pub struct Rasterizer {
     model: glm::Mat4,
     view: glm::Mat4,
@@ -62,6 +66,31 @@ pub struct Rasterizer {
     height: u32,
 
     next_id: u32,
+
+    frame_shader: FrameShaderProgram,
+    // vertex_shader: dyn Fn(SVertexShaderPayload) -> glm::Vec3,
+}
+
+impl Default for Rasterizer{
+    fn default() -> Self {
+        Rasterizer{
+            model: glm::one(),
+            view: glm::one(),
+            projection: glm::one(),
+
+            pos_buf: HashMap::new(),
+            ind_buf: HashMap::new(),
+
+            frame_buf: RefCell::new(Vec::new()),
+            depth_buf: RefCell::new(Vec::new()),
+
+            width: 0u32,
+            height: 0u32,
+            next_id: 0u32,
+
+            frame_shader: Box::new(empty_fs),
+        }
+    }
 }
 
 fn inside_triangle(x: f32, y:f32, _v: &[glm::Vec3; 3]) -> bool {
@@ -152,6 +181,10 @@ impl Rasterizer {
         }
         let ind = self.get_index(point.x as i32, point.y as i32);
         self.frame_buf.borrow_mut()[ind] = color.clone();
+    }
+
+    pub fn set_frame_shader(&mut self, frame_shader: FrameShaderProgram){
+        self.frame_shader = frame_shader;
     }
 
     pub fn clear(&self, buff: Buffer) {
@@ -306,6 +339,9 @@ impl Rasterizer {
                     }
                 }
                 if cnt >= (sample_list.len() as u32) / 2 {
+                    let fs_payload = SFragmentShaderPayload {
+
+                    }
                     self.frame_buf.borrow_mut()[idx] = result_color;
                     // self.frame_buf.borrow_mut()[idx] = result_normal;
                     // self.frame_buf.borrow_mut()[idx] = result_tex_coord;
