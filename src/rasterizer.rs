@@ -258,7 +258,9 @@ impl Rasterizer {
                             pos_buf[ind[i] as usize].color.x,
                             pos_buf[ind[i] as usize].color.y,
                             pos_buf[ind[i] as usize].color.z);
-                t.set_normal(i, &(inv_m * v4_pos).xyz());
+                let w_normal = (inv_m * v4_pos).xyz().normalize();
+                println!("{:?}", w_normal);
+                t.set_normal(i, &w_normal);
                 t.set_position(i, &(self.model * v4_pos).xyz());
             }
 
@@ -357,7 +359,8 @@ impl Rasterizer {
                         normal: result_normal,
                         tex_coords: result_tex_coord.xy(),
                     };
-                    self.frame_buf.borrow_mut()[idx] = (self.frame_shader)(&fs_payload);
+                    let color = (self.frame_shader)(&fs_payload);
+                    self.frame_buf.borrow_mut()[idx] = glm::clamp(&color, 0., 1.);
                     self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
                 }
             }

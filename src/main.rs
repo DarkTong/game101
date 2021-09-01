@@ -14,6 +14,7 @@ use rasterizer::*;
 use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3, Vector}, highgui, imgcodecs::{self, IMREAD_COLOR, imwrite, imwritemulti}, imgproc::{self, COLOR_BGR2RGB, COLOR_RGB2BGR}, prelude::*, videoio};
 use std::io::BufReader;
 use std::default;
+use crate::shader_program::normal_fs;
 
 fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::Mat4x4::identity();
@@ -103,18 +104,19 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
-    // let command_line = true;
-    let command_line = false;
+    let command_line = true;
+    // let command_line = false;
 
     let width = 300;
     let height = 300;
 
     let mut rst = Rasterizer::new(width, height);
 
+    rst.set_frame_shader(Box::new(normal_fs));
+
     // 组装数据 --begin
     // let (pos, ind) = load_static_mesh().unwrap();
     let (pos, ind) = load_mesh("./models/cube/cube.obj".to_string()).unwrap();
-    println!("{:?}", pos);
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
@@ -134,11 +136,10 @@ fn main(){
     if command_line {
         rst.clear(Buffer::DEPTH | Buffer::COLOR);
 
-        rst.set_model(&model_mat);
+        rst.set_model(&get_model_matrix(angle, &glm::vec3(0., 1., 0.)));
         rst.set_view(&view_mat);
         rst.set_projection(&proj_mat);
 
-        
         rst.draw(pos_id, ind_id, Primitive::TRIANGLE);
 
         let mat = unsafe {
@@ -149,12 +150,12 @@ fn main(){
         };
 
         let mut out_mat = Mat::default();
-        mat.convert_to(&mut out_mat, CV_8UC3, 1.0, 0.0).unwrap();
+        mat.convert_to(&mut out_mat, CV_8UC3, 255.0, 0.0).unwrap();
         println!("{:?}", out_mat);
 
         let mut params = Vector::new();
         params.push(COLOR_BGR2RGB);
-        imwrite("output.png", &mat, &params).unwrap();
+        imwrite("output.png", &out_mat, &params).unwrap();
         return;
     }
 
