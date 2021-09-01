@@ -1,24 +1,18 @@
 #![allow(dead_code)]
 
+#[derive(Default)]
 pub struct Triangle {
     pub v: [glm::Vec3; 3],
     pub color: [glm::Vec3; 3],
     pub tex_coords: [glm::Vec3; 3],
     pub normal: [glm::Vec3; 3],
+    pub position: [glm::Vec3; 3],
 }
 
 impl Triangle {
-    pub fn new() -> Triangle {
-        let v = [glm::vec3(0f32, 0f32, 0f32); 3];
-        let color = [glm::vec3(1f32, 1f32, 1f32); 3];
-        let tex_coords = [glm::vec3(0f32, 0f32, 0f32); 3];
-        let normal = [glm::vec3(1f32, 0f32, 0f32); 3];
-
-        Triangle {
-            v,
-            color,
-            tex_coords,
-            normal,
+    pub fn new() -> Triangle{
+        Triangle{
+            ..Default::default()
         }
     }
 
@@ -52,6 +46,11 @@ impl Triangle {
     pub fn set_color(&mut self, ind: usize, r: f32, g: f32, b: f32) {
         assert!(ind < 3);
         self.color[ind] = glm::vec3(r, g, b);
+    }
+
+    pub fn set_position(&mut self, ind: usize, p: &glm::Vec3) {
+        assert!(ind < 3);
+        self.position[ind] = p.clone();
     }
 
     pub fn to_vector4(&self) -> [glm::Vec4; 3] {

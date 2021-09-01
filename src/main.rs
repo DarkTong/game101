@@ -98,10 +98,8 @@ fn load_static_mesh() -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)>{
 
 fn main(){
     println!("{:?}", std::fs::canonicalize("."));
-    let t = Triangle::new();
     let b1 = Buffer::COLOR;
     let b2 = Buffer::DEPTH;
-    let b3 = b1 | b2;
     println!("Hello, world!");
 
     let angle = 0f32;

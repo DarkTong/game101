@@ -1,6 +1,10 @@
 
-pub fn to_vec4(v: &glm::Vec3) -> glm::Vec4 {
-    glm::Vec4::new(v.x, v.y, v.z, 1.0)
+pub fn to_vec4(v: &glm::Vec3, w: Option<f32>) -> glm::Vec4 {
+    let _w = match w {
+        Some(v) => v,
+        None => 1.0f32,
+    };
+    glm::Vec4::new(v.x, v.y, v.z, _w)
 }
 
 pub fn draw_line(

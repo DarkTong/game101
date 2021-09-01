@@ -2,9 +2,6 @@ use crate::shader::{SFragmentShaderPayload, SVertexShaderPayload};
 use std::default::Default;
 use std::boxed::Box;
 
-pub fn empty_vs(vs_payload: &SVertexShaderPayload) -> glm::Vec3 {
-
-}
 pub fn empty_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
     return glm::vec3(1.0f32, 1.0, 1.0);
 }

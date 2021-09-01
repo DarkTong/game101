@@ -9,6 +9,7 @@ use crate::{
     shader::*,
     shader_program::*
 };
+use crate::utility::to_vec4;
 
 #[derive(Default, Clone, Copy)]
 pub struct Buffer(u32);
@@ -226,14 +227,19 @@ impl Rasterizer {
         let f2 = (100.0 + 0.1) / 2.0;
 
         let pvm = self.projection * self.view * self.model;
+        let mut inv_m = self.model.clone();
+        inv_m.try_inverse_mut();
+        inv_m.transpose_mut();
 
         for ind in ind_buf {
             let mut v = Vec::new();
+            let mut t = Triangle::new();
 
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.x as usize].pos));
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.y as usize].pos));
-            v.push(pvm * utility::to_vec4(&pos_buf[ind.z as usize].pos));
-            // println!("pos:{:?}", v);
+
+            for i in 0..3 {
+                let v4_pos = utility::to_vec4(&pos_buf[ind[i] as usize].pos, None);
+                v.push(pvm * v4_pos);
+            }
 
             for vec in v.iter_mut() {
                 *vec /= vec.w;
@@ -245,14 +251,15 @@ impl Rasterizer {
                 vert.z = vert.z * f1 + f2;
             }
 
-            let mut t = Triangle::new();
             for i in 0..3usize {
+                let v4_pos = utility::to_vec4(&pos_buf[ind[i] as usize].pos, None);
                 t.set_vertex(i, &v[i].xyz());
                 t.set_color(i,
                             pos_buf[ind[i] as usize].color.x,
                             pos_buf[ind[i] as usize].color.y,
                             pos_buf[ind[i] as usize].color.z);
-                t.set_normal(i, &pos_buf[ind[i] as usize].normal);
+                t.set_normal(i, &(inv_m * v4_pos).xyz());
+                t.set_position(i, &(self.model * v4_pos).xyz());
             }
 
             // self.rasterize_wireframe(&t);
@@ -297,6 +304,7 @@ impl Rasterizer {
                 let mut result_color = glm::vec3(0f32, 0., 0.);
                 let mut result_normal = glm::vec3(0f32, 0., 0.);
                 let mut result_tex_coord = glm::vec3(0f32, 0., 0.);
+                let mut result_position = glm::vec3(0f32, 0., 0.);
                 let mut result_depth = 0f32;
                 let mut cnt = 0u32;
                 for (off_x, off_y) in sample_list {
@@ -322,10 +330,14 @@ impl Rasterizer {
                             let tex_coord_interpolated = interpolated_value(
                                 &t.tex_coords, z_interpolated, &barycentric, &t.v
                             );
+                            let position_interpolated = interpolated_value(
+                                &t.position, z_interpolated, &barycentric, &t.v
+                            );
 
                             result_color += color_interpolated / sample_list.len() as f32;
                             result_normal += normal_interpolated / sample_list.len() as f32;
                             result_tex_coord += tex_coord_interpolated / sample_list.len() as f32;
+                            result_position += position_interpolated / sample_list.len() as f32;
                             cnt += 1u32;
                         }
                         else {
@@ -340,11 +352,12 @@ impl Rasterizer {
                 }
                 if cnt >= (sample_list.len() as u32) / 2 {
                     let fs_payload = SFragmentShaderPayload {
-
-                    }
-                    self.frame_buf.borrow_mut()[idx] = result_color;
-                    // self.frame_buf.borrow_mut()[idx] = result_normal;
-                    // self.frame_buf.borrow_mut()[idx] = result_tex_coord;
+                        position: result_position,
+                        color: result_color,
+                        normal: result_normal,
+                        tex_coords: result_tex_coord.xy(),
+                    };
+                    self.frame_buf.borrow_mut()[idx] = (self.frame_shader)(&fs_payload);
                     self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
                 }
             }
