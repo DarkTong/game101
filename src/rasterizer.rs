@@ -259,7 +259,6 @@ impl Rasterizer {
                             pos_buf[ind[i] as usize].color.y,
                             pos_buf[ind[i] as usize].color.z);
                 let w_normal = (inv_m * v4_pos).xyz().normalize();
-                println!("{:?}", w_normal);
                 t.set_normal(i, &w_normal);
                 t.set_position(i, &(self.model * v4_pos).xyz());
             }
@@ -348,11 +347,11 @@ impl Rasterizer {
                     }
 
                     if !_ok {
-                        result_color += self.frame_buf.borrow()[idx];
+                        result_color += self.frame_buf.borrow()[idx] / sample_list.len() as f32;
                         result_depth += self.depth_buf.borrow()[idx];
                     }
                 }
-                if cnt >= (sample_list.len() as u32) / 2 {
+                if cnt >= (sample_list.len() as u32 + 1) / 2 {
                     let fs_payload = SFragmentShaderPayload {
                         position: result_position,
                         color: result_color,
