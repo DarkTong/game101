@@ -290,78 +290,52 @@ impl Rasterizer {
         let rt = glm::vec2(rt.x as i32, rt.y as i32);
         
         let v = t.to_vector4();
-        // println!("tri v3:{:?}", &t.v);
-        // println!("tri c3:{:?}", &t.color);
-        let sample_list = [
-            (0.5f32, 0.5f32),
-            // (0.25f32, 0.25),
-            // (0.25f32, 0.75),
-            // (0.75f32, 0.25),
-            // (0.75f32, 0.75),
-        ];
+
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
                 let idx = self.get_index(x, y) as usize;
-                let mut result_color = glm::vec3(0f32, 0., 0.);
-                let mut result_normal = glm::vec3(0f32, 0., 0.);
-                let mut result_tex_coord = glm::vec3(0f32, 0., 0.);
-                let mut result_position = glm::vec3(0f32, 0., 0.);
-                let mut result_depth = 0f32;
-                let mut cnt = 0u32;
-                for (off_x, off_y) in sample_list {
-                    let (_x, _y) = (x as f32 + off_x, y as f32 + off_y);
-                    let mut _ok = inside_triangle(_x, _y, &t.v);
-                    if _ok {
-                        let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
-                        let barycentric = glm::vec3(alpha, beta, gamma);
-                        let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
-                        let z_interpolated = 1f32 / z_reciprocal;
-
-                        // z test
-                        if z_interpolated < self.depth_buf.borrow_mut()[idx] {
-                            // z write
-                            result_depth += z_interpolated;
-                            // interpolated color
-                            let color_interpolated = interpolated_value(
-                                &t.color, z_interpolated, &barycentric, &t.v
-                            );
-                            let normal_interpolated = interpolated_value(
-                                &t.normal, z_interpolated, &barycentric, &t.v
-                            );
-                            let tex_coord_interpolated = interpolated_value(
-                                &t.tex_coords, z_interpolated, &barycentric, &t.v
-                            );
-                            let position_interpolated = interpolated_value(
-                                &t.position, z_interpolated, &barycentric, &t.v
-                            );
-
-                            result_color += color_interpolated / sample_list.len() as f32;
-                            result_normal += normal_interpolated / sample_list.len() as f32;
-                            result_tex_coord += tex_coord_interpolated / sample_list.len() as f32;
-                            result_position += position_interpolated / sample_list.len() as f32;
-                            cnt += 1u32;
-                        }
-                        else {
-                            _ok = false;
-                        }
-                    }
-
-                    if !_ok {
-                        result_color += self.frame_buf.borrow()[idx] / sample_list.len() as f32;
-                        result_depth += self.depth_buf.borrow()[idx];
-                    }
+                let _x = x as f32 + 0.5;
+                let _y = y as f32 + 0.5;
+                let mut _ok = inside_triangle(_x, _y, &t.v);
+                if !_ok {
+                    continue;
                 }
-                if cnt >= (sample_list.len() as u32 + 1) / 2 {
-                    let fs_payload = SFragmentShaderPayload {
-                        position: result_position,
-                        color: result_color,
-                        normal: result_normal,
-                        tex_coords: result_tex_coord.xy(),
-                    };
-                    let color = (self.frame_shader)(&fs_payload);
-                    self.frame_buf.borrow_mut()[idx] = glm::clamp(&color, 0., 1.);
-                    self.depth_buf.borrow_mut()[idx] = result_depth / cnt as f32;
+                let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
+                let barycentric = glm::vec3(alpha, beta, gamma);
+                let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
+                let z_interpolated = 1f32 / z_reciprocal;
+
+                // z test
+                if z_interpolated >= self.depth_buf.borrow_mut()[idx] {
+                    continue
                 }
+
+                // interpolated color
+                let color_interpolated = interpolated_value(
+                    &t.color, z_interpolated, &barycentric, &t.v
+                );
+                let normal_interpolated = interpolated_value(
+                    &t.normal, z_interpolated, &barycentric, &t.v
+                );
+                let tex_coord_interpolated = interpolated_value(
+                    &t.tex_coords, z_interpolated, &barycentric, &t.v
+                );
+                let position_interpolated = interpolated_value(
+                    &t.position, z_interpolated, &barycentric, &t.v
+                );
+
+                let fs_payload = SFragmentShaderPayload {
+                    position: position_interpolated,
+                    color: color_interpolated,
+                    normal: normal_interpolated,
+                    tex_coords: tex_coord_interpolated.xy(),
+                };
+
+                // run frame shader
+                let color = (self.frame_shader)(&fs_payload);
+                self.frame_buf.borrow_mut()[idx] = color;
+                // z write
+                self.depth_buf.borrow_mut()[idx] = z_interpolated;
             }
         }
     }   
