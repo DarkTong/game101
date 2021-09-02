@@ -60,8 +60,8 @@ pub struct Rasterizer {
     pos_buf: HashMap<PosBufId, Vec<SVertex>>,
     ind_buf: HashMap<IndBufId, Vec<glm::U32Vec3>>,
 
-    frame_buf: RefCell<Vec<glm::Vec3>>,
-    depth_buf: RefCell<Vec<f32>>,
+    frame_bufs: Vec<RefCell<Vec<glm::Vec3>>>,
+    depth_bufs: Vec<RefCell<Vec<f32>>>,
 
     width: u32,
     height: u32,
@@ -69,11 +69,15 @@ pub struct Rasterizer {
     next_id: u32,
 
     frame_shader: FrameShaderProgram,
+    msaa: u32,
     // vertex_shader: dyn Fn(SVertexShaderPayload) -> glm::Vec3,
 }
 
 impl Default for Rasterizer{
     fn default() -> Self {
+        let mut frame_bufs = Vec::<RefCell<Vec<glm::Vec3>>>::new();
+        let mut depth_bufs = Vec::<RefCell<Vec<f32>>>::new();
+
         Rasterizer{
             model: glm::one(),
             view: glm::one(),
@@ -82,14 +86,15 @@ impl Default for Rasterizer{
             pos_buf: HashMap::new(),
             ind_buf: HashMap::new(),
 
-            frame_buf: RefCell::new(Vec::new()),
-            depth_buf: RefCell::new(Vec::new()),
+            frame_bufs,
+            depth_bufs,
 
             width: 0u32,
             height: 0u32,
             next_id: 0u32,
 
             frame_shader: Box::new(empty_fs),
+            msaa: 0u32,
         }
     }
 }
@@ -135,15 +140,25 @@ fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
 
 impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
-        let mut frame_buf = RefCell::new(Vec::new());
-        let mut depth_buf = RefCell::new(Vec::new());
-        frame_buf.borrow_mut().resize((width * height) as usize, glm::Vec3::zeros());
-        depth_buf.borrow_mut().resize((width * height) as usize, 0f32);
+        let msaa = 1u32;
+
+        let mut frame_bufs = Vec::new();
+        let mut depth_bufs = Vec::new();
+        for _ in 0..msaa + 1 {
+            let mut frame_buf = RefCell::new(Vec::new());
+            let mut depth_buf = RefCell::new(Vec::new());
+            frame_buf.borrow_mut().resize((width * height) as usize, glm::Vec3::zeros());
+            depth_buf.borrow_mut().resize((width * height) as usize, 0f32);
+
+            frame_bufs.push(frame_buf);
+            depth_bufs.push(depth_buf);
+        }
         Rasterizer {
             width,
             height,
-            frame_buf,
-            depth_buf,
+            frame_bufs,
+            depth_bufs,
+            msaa,
             ..Default::default()
         }
     }
@@ -181,7 +196,7 @@ impl Rasterizer {
             return;
         }
         let ind = self.get_index(point.x as i32, point.y as i32);
-        self.frame_buf.borrow_mut()[ind] = color.clone();
+        self.frame_bufs[(self.msaa) as usize].borrow_mut()[ind] = color.clone();
     }
 
     pub fn set_frame_shader(&mut self, frame_shader: FrameShaderProgram){
@@ -189,30 +204,32 @@ impl Rasterizer {
     }
 
     pub fn clear(&self, buff: Buffer) {
-        if (buff & Buffer::COLOR).0 != 0 {
-            self.frame_buf.borrow_mut()
-                .iter_mut()
-                .map(|color| *color = glm::Vec3::zeros())
-                .count();
-        }
-        if (buff & Buffer::DEPTH).0 != 0 {
-            self.depth_buf.borrow_mut()
-                .iter_mut()
-                .map(|depth| *depth = f32::INFINITY)
-                .count();
+        for i in 0..(self.msaa + 1) as usize {
+            if (buff & Buffer::COLOR).0 != 0 {
+                self.frame_bufs[i].borrow_mut()
+                    .iter_mut()
+                    .map(|color| *color = glm::Vec3::zeros())
+                    .count();
+            }
+            if (buff & Buffer::DEPTH).0 != 0 {
+                self.depth_bufs[i].borrow_mut()
+                    .iter_mut()
+                    .map(|depth| *depth = f32::INFINITY)
+                    .count();
+            }
         }
     }
 
     pub fn frame_buf_sclice(&self) -> &[u8] {
-        let ptr = self.frame_buf.as_ptr() as *const u8;
-        println!("frame buf size: {}", self.frame_buf.borrow().len() * std::mem::size_of::<glm::U8Vec4>());
+        let ptr = self.frame_bufs.as_ptr() as *const u8;
+        println!("frame buf size: {}", self.frame_bufs[0].borrow().len() * std::mem::size_of::<glm::U8Vec4>());
         unsafe {
-            std::slice::from_raw_parts(ptr, self.frame_buf.borrow().len() * std::mem::size_of::<glm::U8Vec4>())
+            std::slice::from_raw_parts(ptr, self.frame_bufs[0].borrow().len() * std::mem::size_of::<glm::U8Vec4>())
         }
     }
 
     pub unsafe fn frame_buf_ptr(&mut self) -> *mut std::ffi::c_void {
-        self.frame_buf.borrow_mut().as_mut_ptr() as *mut std::ffi::c_void
+        self.frame_bufs[0].borrow_mut().as_mut_ptr() as *mut std::ffi::c_void
     }
 
     pub fn draw(&self, pos_id: PosBufId, ind_id: IndBufId, primitive_type: Primitive) {
@@ -291,51 +308,71 @@ impl Rasterizer {
         
         let v = t.to_vector4();
 
+        let sample_list: [(f32, f32); 1] = [
+            (0.5f32, 0.5f32),
+            // (0.25, 0.25),
+            // (0.75, 0.25),
+            // (0.25, 0.75),
+            // (0.75, 0.75),
+        ];
+
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
                 let idx = self.get_index(x, y) as usize;
-                let _x = x as f32 + 0.5;
-                let _y = y as f32 + 0.5;
-                let mut _ok = inside_triangle(_x, _y, &t.v);
-                if !_ok {
-                    continue;
+                for s_idx in 0..sample_list.len() {
+                    let _x = x as f32 + sample_list[s_idx].0;
+                    let _y = y as f32 + sample_list[s_idx].1;
+                    let mut _ok = inside_triangle(_x, _y, &t.v);
+                    if !_ok {
+                        continue;
+                    }
+                    let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
+                    let barycentric = glm::vec3(alpha, beta, gamma);
+                    let z_reciprocal = alpha / v[0].z + beta / v[1].z + gamma / v[2].z;
+                    let z_interpolated = 1f32 / z_reciprocal;
+
+                    // z test
+                    if z_interpolated >= self.depth_bufs[s_idx].borrow_mut()[idx] {
+                        continue
+                    }
+
+                    // interpolated color
+                    let color_interpolated = interpolated_value(
+                        &t.color, z_interpolated, &barycentric, &t.v
+                    );
+                    let normal_interpolated = interpolated_value(
+                        &t.normal, z_interpolated, &barycentric, &t.v
+                    );
+                    let tex_coord_interpolated = interpolated_value(
+                        &t.tex_coords, z_interpolated, &barycentric, &t.v
+                    );
+                    let position_interpolated = interpolated_value(
+                        &t.position, z_interpolated, &barycentric, &t.v
+                    );
+
+                    let fs_payload = SFragmentShaderPayload {
+                        position: position_interpolated,
+                        color: color_interpolated,
+                        normal: normal_interpolated,
+                        tex_coords: tex_coord_interpolated.xy(),
+                    };
+
+                    // run frame shader
+                    let color = (self.frame_shader)(&fs_payload);
+                    self.frame_bufs[s_idx].borrow_mut()[idx] = color;
+                    // z write
+                    self.depth_bufs[s_idx].borrow_mut()[idx] = z_interpolated;
                 }
-                let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
-                let barycentric = glm::vec3(alpha, beta, gamma);
-                let z_reciprocal = alpha/v[0].z + beta/v[1].z + gamma/v[2].z;
-                let z_interpolated = 1f32 / z_reciprocal;
 
-                // z test
-                if z_interpolated >= self.depth_buf.borrow_mut()[idx] {
-                    continue
+                // 合并各buffer信息
+                let mut merge_frame_buf = self.frame_bufs[(self.msaa) as usize].borrow_mut();
+                let mut merge_depth_buf = self.depth_bufs[(self.msaa) as usize].borrow_mut();
+                merge_frame_buf[idx] = glm::zero();
+                merge_depth_buf[idx] = 0f32;
+                for s_idx in 0..self.msaa as usize {
+                    merge_frame_buf[idx] += self.frame_bufs[s_idx].borrow_mut()[idx] / self.msaa as f32;
+                    merge_depth_buf[idx] += self.depth_bufs[s_idx].borrow_mut()[idx] / self.msaa as f32;
                 }
-
-                // interpolated color
-                let color_interpolated = interpolated_value(
-                    &t.color, z_interpolated, &barycentric, &t.v
-                );
-                let normal_interpolated = interpolated_value(
-                    &t.normal, z_interpolated, &barycentric, &t.v
-                );
-                let tex_coord_interpolated = interpolated_value(
-                    &t.tex_coords, z_interpolated, &barycentric, &t.v
-                );
-                let position_interpolated = interpolated_value(
-                    &t.position, z_interpolated, &barycentric, &t.v
-                );
-
-                let fs_payload = SFragmentShaderPayload {
-                    position: position_interpolated,
-                    color: color_interpolated,
-                    normal: normal_interpolated,
-                    tex_coords: tex_coord_interpolated.xy(),
-                };
-
-                // run frame shader
-                let color = (self.frame_shader)(&fs_payload);
-                self.frame_buf.borrow_mut()[idx] = color;
-                // z write
-                self.depth_buf.borrow_mut()[idx] = z_interpolated;
             }
         }
     }   
