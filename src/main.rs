@@ -104,8 +104,8 @@ fn main(){
     println!("Hello, world!");
 
     let angle = 0f32;
-    // let command_line = true;
-    let command_line = false;
+    let command_line = true;
+    // let command_line = false;
 
     let width = 300;
     let height = 300;

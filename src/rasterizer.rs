@@ -52,6 +52,22 @@ pub struct SVertex {
     pub color: glm::Vec3,
 }
 
+const MSAA_COUNT: u32 = 4u32;
+const SAMPLE_LIST: [(f32, f32); MSAA_COUNT as usize] = [
+    // 1x msaa
+    // (0.5f32, 0.5f32),
+    // 4x msaa
+    // (0.25, 0.25),
+    // (0.75, 0.25),
+    // (0.25, 0.75),
+    // (0.75, 0.75),
+    // 4x msaa
+    (0.4, 0.1),
+    (0.9, 0.4),
+    (0.1, 0.6),
+    (0.6, 0.9),
+];
+
 pub struct Rasterizer {
     model: glm::Mat4,
     view: glm::Mat4,
@@ -140,7 +156,7 @@ fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
 
 impl Rasterizer {
     pub fn new(width: u32, height: u32) -> Rasterizer {
-        let msaa = 1u32;
+        let msaa = MSAA_COUNT;
 
         let mut frame_bufs = Vec::new();
         let mut depth_bufs = Vec::new();
@@ -308,13 +324,7 @@ impl Rasterizer {
         
         let v = t.to_vector4();
 
-        let sample_list: [(f32, f32); 1] = [
-            (0.5f32, 0.5f32),
-            // (0.25, 0.25),
-            // (0.75, 0.25),
-            // (0.25, 0.75),
-            // (0.75, 0.75),
-        ];
+        let sample_list = &SAMPLE_LIST;
 
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
