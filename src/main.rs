@@ -8,6 +8,7 @@ mod shader_program;
 mod triangle;
 mod rasterizer;
 mod utility;
+mod shader_utility;
 
 use triangle::*;
 use rasterizer::*;
