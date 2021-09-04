@@ -17,16 +17,18 @@ use std::io::BufReader;
 use std::default;
 use crate::shader_program::*;
 
+const MY_PI: f32 = 3.1415927;
+const TWO_PI: f32 = 2.0 * MY_PI;
+
 fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::Mat4x4::identity();
-    // 绕x -45°
-    let mut r_mat;
-    {
-        let _r = -45. * 3.24 / 180.;
-        r_mat = glm::rotate(&_mat, _r, &glm::vec3(1., 0., 0.));
-    }
+    // // 绕x -45°
+    // {
+    //     let _r = -45. * 3.24 / 180.;
+    //     _mat = glm::rotate(&_mat, _r, &glm::vec3(1., 0., 0.));
+    // }
     let radians = rotation_angle * 3.14 / 180.0;
-    let mut _mat = glm::rotate(&r_mat, radians, axis);
+    let mut _mat = glm::rotate(&_mat, radians, axis);
 
     return _mat;
 }
@@ -111,7 +113,7 @@ fn main(){
     let b2 = Buffer::DEPTH;
     println!("Hello, world!, {}", f32::INFINITY);
 
-    let angle = 45.0f32;
+    let mut angle = -140.0;
     let command_line = true;
     // let command_line = false;
 
@@ -122,11 +124,11 @@ fn main(){
 
     // 组装数据 --begin
     // let (pos, ind) = load_static_mesh().unwrap();
-    let (pos, ind) = load_mesh("./models/cube/cube.obj".to_string()).unwrap();
+    let (pos, ind) = load_mesh("./models/spot/spot_triangulated_good.obj".to_string()).unwrap();
     // 世界
     let model_mat = glm::Mat4::identity();
     // 相机
-    let eye = glm::vec3(0.0, 0.0, -10.0);
+    let eye = glm::vec3(0.0, 0.0, 5.0);
     let at = glm::vec3(0.0, 0.0, 1.0);
     let up = glm::vec3(0.0, 1.0, 0.0);
     let view_mat = glm::look_at_lh(&eye, &at, &up);
@@ -177,7 +179,6 @@ fn main(){
     highgui::named_window(win_name, highgui::WINDOW_NORMAL).unwrap();
 
     let mut key = 0i32;
-    let mut angle = 0.;
     while key != 27 {
         rst.clear(Buffer::DEPTH | Buffer::COLOR);
 

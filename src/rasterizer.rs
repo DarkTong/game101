@@ -320,14 +320,15 @@ impl Rasterizer {
             }
 
             for i in 0..3usize {
-                let v4_pos = utility::to_vec4(&pos_buf[ind[i] as usize].pos, None);
                 t.set_vertex(i, &v[i].xyz());
                 t.set_color(i,
                             pos_buf[ind[i] as usize].color.x,
                             pos_buf[ind[i] as usize].color.y,
                             pos_buf[ind[i] as usize].color.z);
-                let w_normal = (inv_m * v4_pos).xyz().normalize();
+                let v4_normal = utility::to_vec4(&pos_buf[ind[i] as usize].normal, None);
+                let w_normal = (inv_m * v4_normal).xyz().normalize();
                 t.set_normal(i, &w_normal);
+                let v4_pos = utility::to_vec4(&pos_buf[ind[i] as usize].pos, None);
                 t.set_position(i, &(self.model * v4_pos).xyz());
             }
 
