@@ -109,7 +109,7 @@ fn main(){
     println!("{:?}", std::fs::canonicalize("."));
     let b1 = Buffer::COLOR;
     let b2 = Buffer::DEPTH;
-    println!("Hello, world!");
+    println!("Hello, world!, {}", f32::INFINITY);
 
     let angle = 45.0f32;
     let command_line = true;
@@ -133,7 +133,7 @@ fn main(){
     // // 投影
     // let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
     let proj_mat =
-        glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
+        glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.1, 100.0);
 
     // set fragment shader
     rst.set_frame_shader(Box::new(normal_fs));

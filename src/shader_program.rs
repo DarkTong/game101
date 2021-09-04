@@ -13,9 +13,6 @@ pub fn empty_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
 
 pub fn normal_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3{
     let result_color = (fs_payload.normal.normalize() + glm::vec3(1., 1., 1.)).scale(0.5);
-    if result_color.x == 0. && result_color.y == 0. && result_color.z == 0. {
-        println!("result_color:{:?}", result_color);
-    }
     return result_color;
 }
 

@@ -52,20 +52,20 @@ pub struct SVertex {
     pub color: glm::Vec3,
 }
 
-const MSAA_COUNT: u32 = 4u32;
+const MSAA_COUNT: u32 = 1u32;
 const SAMPLE_LIST: [(f32, f32); MSAA_COUNT as usize] = [
     // 1x msaa
-    // (0.5f32, 0.5f32),
+    (0.5f32, 0.5f32),
     // 4x msaa
     // (0.25, 0.25),
     // (0.75, 0.25),
     // (0.25, 0.75),
     // (0.75, 0.75),
     // 4x msaa
-    (0.4, 0.1),
-    (0.9, 0.4),
-    (0.1, 0.6),
-    (0.6, 0.9),
+    // (0.4, 0.1),
+    // (0.9, 0.4),
+    // (0.1, 0.6),
+    // (0.6, 0.9),
 ];
 
 pub struct Rasterizer {
@@ -123,23 +123,34 @@ impl Default for Rasterizer{
 }
 
 fn inside_triangle(x: f32, y:f32, _v: &[glm::Vec3; 3]) -> bool {
-    let p = glm::vec3(x, y, 1.);
-    let mut result = 3;
-    for i in 0..3 {
-        let v0 = _v[i];
-        let v1 = _v[(i + 1) % 3];
-        let va = p - v0;
-        let vb = v1 - v0;
-        let vc = glm::cross(&va, &vb);
-        if vc.z > 0. {
-            result = result & 0x2
+    let off = [
+        (0f32, 0f32),
+        (0f32, 1f32),
+        (1f32, 0f32),
+        (1f32, 1f32),
+    ];
+    for (off_x, off_y) in off.iter() {
+        let p = glm::vec3(x + off_x, y + off_y, 1.);
+        let mut result = 3;
+        for i in 0..3 {
+            let v0 = _v[i];
+            let v1 = _v[(i + 1) % 3];
+            let va = p - v0;
+            let vb = v1 - v0;
+            let vc = glm::cross(&va, &vb);
+            if vc.z > 0. {
+                result = result & 0x2
+            }
+            else {
+                result = result & 0x1
+            }
         }
-        else {
-            result = result & 0x1
+        if result != 0 {
+            return true;
         }
     }
 
-    return result != 0;
+    return false;
 }
 
 fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &glm::Vec3, pos: &[glm::Vec3;3]) -> glm::Vec3{
@@ -154,14 +165,14 @@ fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &
     return out_v;
 }
 
-fn compute_barycentric_2d(x:f32, y:f32, _v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
-    let x = x as f64;
-    let y = y as f64;
-    let v = [
-        glm::vec3(_v[0].x as f64, _v[0].y as f64, _v[0].z as f64),
-        glm::vec3(_v[1].x as f64, _v[1].y as f64, _v[1].z as f64),
-        glm::vec3(_v[2].x as f64, _v[2].y as f64, _v[2].z as f64),
-    ];
+fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
+    // let x = x as f64;
+    // let y = y as f64;
+    // let v = [
+    //     glm::vec3(_v[0].x as f64, _v[0].y as f64, _v[0].z as f64),
+    //     glm::vec3(_v[1].x as f64, _v[1].y as f64, _v[1].z as f64),
+    //     glm::vec3(_v[2].x as f64, _v[2].y as f64, _v[2].z as f64),
+    // ];
     let c1 = (x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*y + v[1].x*v[2].y - v[2].x*v[1].y) / (v[0].x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*v[0].y + v[1].x*v[2].y - v[2].x*v[1].y);
     let c2 = (x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*y + v[2].x*v[0].y - v[0].x*v[2].y) / (v[1].x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*v[1].y + v[2].x*v[0].y - v[0].x*v[2].y);
     let c3 = (x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*y + v[0].x*v[1].y - v[1].x*v[0].y) / (v[2].x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*v[2].y + v[0].x*v[1].y - v[1].x*v[0].y);
@@ -178,7 +189,7 @@ impl Rasterizer {
             let mut frame_buf = RefCell::new(Vec::new());
             let mut depth_buf = RefCell::new(Vec::new());
             frame_buf.borrow_mut().resize((width * height) as usize, glm::Vec3::zeros());
-            depth_buf.borrow_mut().resize((width * height) as usize, 1f32);
+            depth_buf.borrow_mut().resize((width * height) as usize, 0f32);
 
             frame_bufs.push(frame_buf);
             depth_bufs.push(depth_buf);
@@ -253,7 +264,7 @@ impl Rasterizer {
             if (buff & Buffer::DEPTH).0 != 0 {
                 self.depth_bufs[i].borrow_mut()
                     .iter_mut()
-                    .map(|depth| *depth = 0.0f32)
+                    .map(|depth| *depth = f32::INFINITY)
                     .count();
             }
         }
@@ -279,8 +290,6 @@ impl Rasterizer {
         let pos_buf = self.pos_buf.get(&pos_id).unwrap();
         let ind_buf = self.ind_buf.get(&ind_id).unwrap();
 
-        let f1 = (100.0 - 0.1) / 2.0;
-        let f2 = (100.0 + 0.1) / 2.0;
 
         let pvm = self.projection * self.view * self.model;
         let mut inv_m = self.model.clone();
@@ -308,7 +317,6 @@ impl Rasterizer {
             for vert in v.iter_mut() {
                 vert.x = 0.5 * (self.width as f32) * (vert.x + 1.0);
                 vert.y = 0.5 * (self.height as f32) * (vert.y + 1.0);
-                vert.z = vert.z * f1 + f2;
             }
 
             for i in 0..3usize {
@@ -355,21 +363,20 @@ impl Rasterizer {
 
         for x in lb.x .. rt.x {
             for y in lb.y .. rt.y {
+                if !inside_triangle(x as f32, y as f32, &t.v) {
+                    continue;
+                }
                 let idx = self.get_index(x, y) as usize;
                 for s_idx in 0..sample_list.len() {
                     let _x = x as f32 + sample_list[s_idx].0;
                     let _y = y as f32 + sample_list[s_idx].1;
-                    let mut _ok = inside_triangle(_x, _y, &t.v);
-                    if !_ok {
-                        continue;
-                    }
                     let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
                     let barycentric = glm::vec3(alpha, beta, gamma);
                     let z_reciprocal = alpha / perp_pos[0].z + beta / perp_pos[1].z + gamma / perp_pos[2].z;
                     let z_interpolated = 1f32 / z_reciprocal;
 
                     // z test
-                    if z_reciprocal <= self.depth_bufs[s_idx].borrow_mut()[idx] {
+                    if z_interpolated >= self.depth_bufs[s_idx].borrow_mut()[idx] {
                         continue
                     }
 
@@ -401,7 +408,7 @@ impl Rasterizer {
                     let color = (self.frame_shader)(&fs_payload);
                     self.frame_bufs[s_idx].borrow_mut()[idx] = color;
                     // z write
-                    self.depth_bufs[s_idx].borrow_mut()[idx] = z_reciprocal;
+                    self.depth_bufs[s_idx].borrow_mut()[idx] = z_interpolated;
                 }
 
                 // 合并各buffer信息
