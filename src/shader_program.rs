@@ -1,6 +1,7 @@
 use crate::shader::{SFragmentShaderPayload, SVertexShaderPayload};
 use std::default::Default;
 use std::boxed::Box;
+use opencv::core::MatTrait;
 
 pub type VertexShaderProgram=Box<dyn Fn(&SVertexShaderPayload) -> glm::Vec3>;
 pub type FrameShaderProgram=Box<dyn Fn(&SFragmentShaderPayload) -> glm::Vec3>;
@@ -23,26 +24,26 @@ struct Light {
     pub I: glm::Vec3,
 }
 
-pub fn texture_fragment_shader(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
-    let tex_color = glm::Vec3(0.7f32, 0., 0.);
-    if fs_payload.texture != opencv::Mat::defalt() {
+pub fn texture_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
+    let tex_color = glm::vec3(0.7f32, 0., 0.);
+    if !fs_payload.texture.empty().unwrap() {
 
     }
 
-    let ka = glm::Vec3(0.005f32, 0.005, 0.005);
+    let ka = glm::vec3(0.005f32, 0.005, 0.005);
     let kd = tex_color.clone();
-    let ks = glm::Vec3(0.7939, 0.7937, 0.7937);
+    let ks = glm::vec3(0.7939, 0.7937, 0.7937);
 
     let l1 = Light {
-        pos: glm::Vec3(20., 20., 20.),
-        I: glm::Vec3(2.0, 2.0, 2.0),
+        pos: glm::vec3(20., 20., 20.),
+        I: glm::vec3(2.0, 2.0, 2.0),
     };
     let l2 = Light {
-        pos: glm::Vec3(-20, 20, 0),
-        I: glm::Vec3(2.0, 2.0, 2.0),
+        pos: glm::vec3(-20., 20., 0.),
+        I: glm::vec3(2.0, 2.0, 2.0),
     };
     let lights = [l1, l2];
-    let amb_light_I = glm::Vec3(0.04, 0.04, 0.04);
+    let amb_light_I = 0.04;
     let eye_pos = fs_payload.eye_pos;
     let view_pos = fs_payload.position;
 
@@ -59,9 +60,9 @@ pub fn texture_fragment_shader(fs_payload: &SFragmentShaderPayload) -> glm::Vec3
         let nl_ct = f32::max(glm::dot(&normal, &ol), 0.0f32);
         let nh_ct = f32::max(glm::dot(&normal, &half_mid), 0.0f32);
 
-        let ambient_color = color * amb_light_I;
-        let diffuse_color = color * nl_ct * l.I;
-        let specular_color = l.I * nh_ct.pow(p);
+        let ambient_color = glm::matrix_comp_mult(&color, &(amb_light_I * l.I));
+        let diffuse_color = glm::matrix_comp_mult(&color, &(nl_ct * l.I));
+        let specular_color = l.I * nh_ct.powf(p);
 
         out_color += ambient_color + diffuse_color + specular_color;
     }

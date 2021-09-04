@@ -15,5 +15,5 @@ pub struct SFragmentShaderPayload{
     pub normal: glm::Vec3,
     pub tex_coords: glm::Vec2,
 
-    pub texture: opencv::core::Mat,
+    pub texture: opencv::prelude::Mat,
 }

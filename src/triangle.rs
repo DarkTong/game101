@@ -7,6 +7,7 @@ pub struct Triangle {
     pub tex_coords: [glm::Vec3; 3],
     pub normal: [glm::Vec3; 3],
     pub position: [glm::Vec3; 3],
+    pub perp_pos: [glm::Vec4; 4],
 }
 
 impl Triangle {
@@ -51,6 +52,11 @@ impl Triangle {
     pub fn set_position(&mut self, ind: usize, p: &glm::Vec3) {
         assert!(ind < 3);
         self.position[ind] = p.clone();
+    }
+
+    pub fn set_perp_pos(&mut self, ind:usize, p: &glm::Vec4) {
+        assert!(ind < 4);
+        self.perp_pos[ind] = p.clone();
     }
 
     pub fn to_vector4(&self) -> [glm::Vec4; 3] {

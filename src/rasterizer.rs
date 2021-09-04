@@ -87,6 +87,10 @@ pub struct Rasterizer {
     frame_shader: FrameShaderProgram,
     msaa: u32,
     // vertex_shader: dyn Fn(SVertexShaderPayload) -> glm::Vec3,
+
+    // constant fragment shader value
+    cfv_eye_pos: glm::Vec3,
+    cfv_texture0: opencv::prelude::Mat,
 }
 
 impl Default for Rasterizer{
@@ -111,6 +115,9 @@ impl Default for Rasterizer{
 
             frame_shader: Box::new(empty_fs),
             msaa: 0u32,
+
+            cfv_eye_pos: glm::vec3(0., 0., 0.),
+            cfv_texture0: opencv::prelude::Mat::default(),
         }
     }
 }
@@ -147,11 +154,18 @@ fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &
     return out_v;
 }
 
-fn compute_barycentric_2d(x:f32, y:f32, v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
+fn compute_barycentric_2d(x:f32, y:f32, _v:&[glm::Vec3; 3]) -> (f32, f32, f32) {
+    let x = x as f64;
+    let y = y as f64;
+    let v = [
+        glm::vec3(_v[0].x as f64, _v[0].y as f64, _v[0].z as f64),
+        glm::vec3(_v[1].x as f64, _v[1].y as f64, _v[1].z as f64),
+        glm::vec3(_v[2].x as f64, _v[2].y as f64, _v[2].z as f64),
+    ];
     let c1 = (x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*y + v[1].x*v[2].y - v[2].x*v[1].y) / (v[0].x*(v[1].y - v[2].y) + (v[2].x - v[1].x)*v[0].y + v[1].x*v[2].y - v[2].x*v[1].y);
     let c2 = (x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*y + v[2].x*v[0].y - v[0].x*v[2].y) / (v[1].x*(v[2].y - v[0].y) + (v[0].x - v[2].x)*v[1].y + v[2].x*v[0].y - v[0].x*v[2].y);
     let c3 = (x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*y + v[0].x*v[1].y - v[1].x*v[0].y) / (v[2].x*(v[0].y - v[1].y) + (v[1].x - v[0].x)*v[2].y + v[0].x*v[1].y - v[1].x*v[0].y);
-    return (c1, c2, c3);
+    return (c1 as f32, c2 as f32, c3 as f32);
 }
 
 impl Rasterizer {
@@ -164,7 +178,7 @@ impl Rasterizer {
             let mut frame_buf = RefCell::new(Vec::new());
             let mut depth_buf = RefCell::new(Vec::new());
             frame_buf.borrow_mut().resize((width * height) as usize, glm::Vec3::zeros());
-            depth_buf.borrow_mut().resize((width * height) as usize, 0f32);
+            depth_buf.borrow_mut().resize((width * height) as usize, 1f32);
 
             frame_bufs.push(frame_buf);
             depth_bufs.push(depth_buf);
@@ -219,6 +233,15 @@ impl Rasterizer {
         self.frame_shader = frame_shader;
     }
 
+    // constant fragment shader value set
+    pub fn set_cfv_eye_pos(&mut self, eye_pos: glm::Vec3) {
+        self.cfv_eye_pos = eye_pos;
+    }
+
+    pub fn set_cfv_texture0(&mut self, texture: opencv::prelude::Mat) {
+        self.cfv_texture0 = texture;
+    }
+
     pub fn clear(&self, buff: Buffer) {
         for i in 0..(self.msaa + 1) as usize {
             if (buff & Buffer::COLOR).0 != 0 {
@@ -230,7 +253,7 @@ impl Rasterizer {
             if (buff & Buffer::DEPTH).0 != 0 {
                 self.depth_bufs[i].borrow_mut()
                     .iter_mut()
-                    .map(|depth| *depth = f32::INFINITY)
+                    .map(|depth| *depth = 0.0f32)
                     .count();
             }
         }
@@ -272,6 +295,10 @@ impl Rasterizer {
             for i in 0..3 {
                 let v4_pos = utility::to_vec4(&pos_buf[ind[i] as usize].pos, None);
                 v.push(pvm * v4_pos);
+            }
+
+            for i in 0..3usize {
+                t.set_perp_pos(i, &v[i]);
             }
 
             for vec in v.iter_mut() {
@@ -322,7 +349,7 @@ impl Rasterizer {
         let lb = glm::vec2(lb.x as i32, lb.y as i32);
         let rt = glm::vec2(rt.x as i32, rt.y as i32);
         
-        let v = t.to_vector4();
+        let perp_pos = &t.perp_pos;
 
         let sample_list = &SAMPLE_LIST;
 
@@ -338,11 +365,11 @@ impl Rasterizer {
                     }
                     let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
                     let barycentric = glm::vec3(alpha, beta, gamma);
-                    let z_reciprocal = alpha / v[0].z + beta / v[1].z + gamma / v[2].z;
+                    let z_reciprocal = alpha / perp_pos[0].z + beta / perp_pos[1].z + gamma / perp_pos[2].z;
                     let z_interpolated = 1f32 / z_reciprocal;
 
                     // z test
-                    if z_interpolated >= self.depth_bufs[s_idx].borrow_mut()[idx] {
+                    if z_reciprocal <= self.depth_bufs[s_idx].borrow_mut()[idx] {
                         continue
                     }
 
@@ -361,17 +388,20 @@ impl Rasterizer {
                     );
 
                     let fs_payload = SFragmentShaderPayload {
+                        eye_pos: self.cfv_eye_pos.clone(),
                         position: position_interpolated,
                         color: color_interpolated,
                         normal: normal_interpolated,
                         tex_coords: tex_coord_interpolated.xy(),
+
+                        texture: self.cfv_texture0.clone(),
                     };
 
                     // run frame shader
                     let color = (self.frame_shader)(&fs_payload);
                     self.frame_bufs[s_idx].borrow_mut()[idx] = color;
                     // z write
-                    self.depth_bufs[s_idx].borrow_mut()[idx] = z_interpolated;
+                    self.depth_bufs[s_idx].borrow_mut()[idx] = z_reciprocal;
                 }
 
                 // 合并各buffer信息
@@ -407,4 +437,6 @@ impl Rasterizer {
         self.next_id += 1;
         id
     }
+
+
 }

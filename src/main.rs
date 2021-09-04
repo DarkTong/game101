@@ -15,12 +15,18 @@ use rasterizer::*;
 use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3, Vector}, highgui, imgcodecs::{self, IMREAD_COLOR, imwrite, imwritemulti}, imgproc::{self, COLOR_BGR2RGB, COLOR_RGB2BGR}, prelude::*, videoio};
 use std::io::BufReader;
 use std::default;
-use crate::shader_program::normal_fs;
+use crate::shader_program::*;
 
 fn get_model_matrix(rotation_angle: f32, axis: &glm::Vec3) -> glm::Mat4x4 {
     let _mat = glm::Mat4x4::identity();
+    // 绕x -45°
+    let mut r_mat;
+    {
+        let _r = -45. * 3.24 / 180.;
+        r_mat = glm::rotate(&_mat, _r, &glm::vec3(1., 0., 0.));
+    }
     let radians = rotation_angle * 3.14 / 180.0;
-    let _mat = glm::rotate(&_mat, radians, axis);
+    let mut _mat = glm::rotate(&r_mat, radians, axis);
 
     return _mat;
 }
@@ -98,13 +104,14 @@ fn load_static_mesh() -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)>{
     return Ok((mesh, ind));
 }
 
+
 fn main(){
     println!("{:?}", std::fs::canonicalize("."));
     let b1 = Buffer::COLOR;
     let b2 = Buffer::DEPTH;
     println!("Hello, world!");
 
-    let angle = 0f32;
+    let angle = 45.0f32;
     let command_line = true;
     // let command_line = false;
 
@@ -112,8 +119,6 @@ fn main(){
     let height = 300;
 
     let mut rst = Rasterizer::new(width, height);
-
-    rst.set_frame_shader(Box::new(normal_fs));
 
     // 组装数据 --begin
     // let (pos, ind) = load_static_mesh().unwrap();
@@ -125,11 +130,18 @@ fn main(){
     let at = glm::vec3(0.0, 0.0, 1.0);
     let up = glm::vec3(0.0, 1.0, 0.0);
     let view_mat = glm::look_at_lh(&eye, &at, &up);
-    // 投影
-    let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
-    // let proj_mat = 
-    //     glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
+    // // 投影
+    // let proj_mat = glm::ortho_lh(-2.5, 2.5, -2.5, 2.5, 0.0, 100.0);
+    let proj_mat =
+        glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.0, 100.0);
+
+    // set fragment shader
+    rst.set_frame_shader(Box::new(normal_fs));
+    // set fragment shader value
+    rst.set_cfv_eye_pos(eye.clone());
+
     // 组装数据 --end
+
 
     let pos_id = rst.load_position(pos);
     let ind_id = rst.load_indices(ind);
