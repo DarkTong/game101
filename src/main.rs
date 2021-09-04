@@ -16,6 +16,7 @@ use opencv::{core::{self, CV_32FC2, CV_32FC3, CV_8UC3, Vector}, highgui, imgcode
 use std::io::BufReader;
 use std::default;
 use crate::shader_program::*;
+use opencv::imgcodecs::imread;
 
 const MY_PI: f32 = 3.1415927;
 const TWO_PI: f32 = 2.0 * MY_PI;
@@ -106,6 +107,8 @@ fn load_static_mesh() -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)>{
     return Ok((mesh, ind));
 }
 
+const width     : u32 = 100;
+const height    : u32 = 100;
 
 fn main(){
     println!("{:?}", std::fs::canonicalize("."));
@@ -117,8 +120,6 @@ fn main(){
     let command_line = true;
     // let command_line = false;
 
-    let width = 700;
-    let height = 700;
 
     let mut rst = Rasterizer::new(width, height);
 
@@ -138,9 +139,12 @@ fn main(){
         glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.1, 100.0);
 
     // set fragment shader
-    rst.set_frame_shader(Box::new(phone_fs));
+    rst.set_frame_shader(Box::new(texture_fs));
     // set fragment shader value
     rst.set_cfv_eye_pos(eye.clone());
+    // 加载任意贴图
+    let texture0 = imread("./models/spot/spot_texture.png", IMREAD_COLOR).unwrap();
+    rst.set_cfv_texture0(texture0);
 
     // 组装数据 --end
 

@@ -321,6 +321,8 @@ impl Rasterizer {
 
             for i in 0..3usize {
                 t.set_vertex(i, &v[i].xyz());
+                let uv = &pos_buf[ind[i] as usize].uv;
+                t.set_tex_coord(i, uv.x, uv.y);
                 t.set_color(i,
                             pos_buf[ind[i] as usize].color.x,
                             pos_buf[ind[i] as usize].color.y,
