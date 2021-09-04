@@ -153,13 +153,13 @@ fn inside_triangle(x: f32, y:f32, _v: &[glm::Vec3; 3]) -> bool {
     return false;
 }
 
-fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &glm::Vec3, pos: &[glm::Vec3;3]) -> glm::Vec3{
+fn interpolated_value(value: &[glm::Vec3;3], z_interpolated: f32, barycentric: &glm::Vec3, pos: &[glm::Vec4;3]) -> glm::Vec3{
     let mut out_v = glm::vec3(0f32, 0f32, 0f32);
     for i in 0..3usize {
         out_v[i] =
-            barycentric[0]*value[0][i]/pos[0].z +
-            barycentric[1]*value[1][i]/pos[1].z +
-            barycentric[2]*value[2][i]/pos[2].z;
+            barycentric[0]*value[0][i]/pos[0].w +
+            barycentric[1]*value[1][i]/pos[1].w +
+            barycentric[2]*value[2][i]/pos[2].w;
         out_v[i] *= z_interpolated;
     }
     return out_v;
@@ -373,7 +373,7 @@ impl Rasterizer {
                     let _y = y as f32 + sample_list[s_idx].1;
                     let (alpha, beta, gamma) = compute_barycentric_2d(_x, _y, &t.v);
                     let barycentric = glm::vec3(alpha, beta, gamma);
-                    let z_reciprocal = alpha / perp_pos[0].z + beta / perp_pos[1].z + gamma / perp_pos[2].z;
+                    let z_reciprocal = alpha / perp_pos[0].w + beta / perp_pos[1].w + gamma / perp_pos[2].w;
                     let z_interpolated = 1f32 / z_reciprocal;
 
                     // z test
@@ -383,17 +383,21 @@ impl Rasterizer {
 
                     // interpolated color
                     let color_interpolated = interpolated_value(
-                        &t.color, z_interpolated, &barycentric, &t.v
+                        &t.color, z_interpolated, &barycentric, &t.perp_pos
                     );
                     let normal_interpolated = interpolated_value(
-                        &t.normal, z_interpolated, &barycentric, &t.v
+                        &t.normal, z_interpolated, &barycentric, &t.perp_pos
                     );
                     let tex_coord_interpolated = interpolated_value(
-                        &t.tex_coords, z_interpolated, &barycentric, &t.v
+                        &t.tex_coords, z_interpolated, &barycentric, &t.perp_pos
                     );
                     let position_interpolated = interpolated_value(
-                        &t.position, z_interpolated, &barycentric, &t.v
+                        &t.position, z_interpolated, &barycentric, &t.perp_pos
                     );
+
+                    if color_interpolated[0] > 1. {
+                        println!("{:?}, {:?}", color_interpolated, z_interpolated);
+                    }
 
                     let fs_payload = SFragmentShaderPayload {
                         eye_pos: self.cfv_eye_pos.clone(),
@@ -407,7 +411,7 @@ impl Rasterizer {
 
                     // run frame shader
                     let color = (self.frame_shader)(&fs_payload);
-                    self.frame_bufs[s_idx].borrow_mut()[idx] = color;
+                    self.frame_bufs[s_idx].borrow_mut()[idx] = color.zyx(); // rgb -> bgr
                     // z write
                     self.depth_bufs[s_idx].borrow_mut()[idx] = z_interpolated;
                 }

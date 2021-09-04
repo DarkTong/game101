@@ -47,7 +47,7 @@ fn load_mesh(path: String) -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)> 
         let pos = glm::vec3(wf_v.position[0], wf_v.position[1], wf_v.position[2]);
         let normal = glm::vec3(wf_v.normal[0], wf_v.normal[1], wf_v.normal[2]);
         let uv = glm::vec3(wf_v.texture[0], wf_v.texture[1], wf_v.texture[2]);
-        let color = glm::vec3(1.0f32, 1.0, 1.0);
+        let color = glm::vec3(0.619f32, 0.474, 0.360);
         mesh.push(SVertex{
             pos, normal, uv, color
         });
@@ -117,8 +117,8 @@ fn main(){
     let command_line = true;
     // let command_line = false;
 
-    let width = 300;
-    let height = 300;
+    let width = 700;
+    let height = 700;
 
     let mut rst = Rasterizer::new(width, height);
 
@@ -138,7 +138,7 @@ fn main(){
         glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.1, 100.0);
 
     // set fragment shader
-    rst.set_frame_shader(Box::new(normal_fs));
+    rst.set_frame_shader(Box::new(phone_fs));
     // set fragment shader value
     rst.set_cfv_eye_pos(eye.clone());
 

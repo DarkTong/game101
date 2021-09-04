@@ -7,7 +7,7 @@ pub struct Triangle {
     pub tex_coords: [glm::Vec3; 3],
     pub normal: [glm::Vec3; 3],
     pub position: [glm::Vec3; 3],
-    pub perp_pos: [glm::Vec4; 4],
+    pub perp_pos: [glm::Vec4; 3],
 }
 
 impl Triangle {
