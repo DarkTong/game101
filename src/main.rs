@@ -107,8 +107,8 @@ fn load_static_mesh() -> obj::ObjResult<(Vec<SVertex>, Vec<glm::U32Vec3>)>{
     return Ok((mesh, ind));
 }
 
-const width     : u32 = 100;
-const height    : u32 = 100;
+const width     : u32 = 700;
+const height    : u32 = 700;
 
 fn main(){
     println!("{:?}", std::fs::canonicalize("."));
@@ -139,7 +139,7 @@ fn main(){
         glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.1, 100.0);
 
     // set fragment shader
-    rst.set_frame_shader(Box::new(texture_fs));
+    rst.set_frame_shader(Box::new(phone_fs));
     // set fragment shader value
     rst.set_cfv_eye_pos(eye.clone());
     // 加载任意贴图
