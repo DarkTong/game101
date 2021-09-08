@@ -139,11 +139,11 @@ fn main(){
         glm::perspective_fov_lh(3.14f32/6.0, width as f32, height as f32, 0.1, 100.0);
 
     // set fragment shader
-    rst.set_frame_shader(Box::new(phone_fs));
+    rst.set_frame_shader(Box::new(bump_fs));
     // set fragment shader value
     rst.set_cfv_eye_pos(eye.clone());
     // 加载任意贴图
-    let texture0 = imread("./models/spot/spot_texture.png", IMREAD_COLOR).unwrap();
+    let texture0 = imread("./models/spot/hmap.jpg", IMREAD_COLOR).unwrap();
     rst.set_cfv_texture0(texture0);
 
     // 组装数据 --end
@@ -174,7 +174,7 @@ fn main(){
 
         let mut params = Vector::new();
         params.push(COLOR_BGR2RGB);
-        imwrite("output.png", &out_mat, &params).unwrap();
+        imwrite("output_dump5.png", &out_mat, &params).unwrap();
         return;
     }
 

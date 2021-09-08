@@ -28,3 +28,22 @@ pub fn texture_sample(texture: &opencv::prelude::Mat, uv: &glm::Vec2) -> glm::Ve
         1.0f32,
     );
 }
+
+pub fn texture_sample2(texture: &opencv::prelude::Mat, uv: &glm::Vec2) -> glm::Vec3{
+    let width = texture.rows();
+    let height = texture.cols();
+
+    let mut u = (uv.x * width as f32) as i32;
+    let mut v = (uv.y * height as f32) as i32;
+    if u < 0 { u = 0; }
+    if u >= width { u = width - 1; }
+    if v < 0 { v = 0; }
+    if v >= height { v = height - 1; }
+    let p = *texture.at_2d::<Vec3b>(u, v).unwrap();
+
+    return glm::vec3(
+        p[2] as f32,
+        p[1] as f32,
+        p[0] as f32,
+    );
+}

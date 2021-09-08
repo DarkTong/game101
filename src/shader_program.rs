@@ -3,7 +3,7 @@ use std::default::Default;
 use std::boxed::Box;
 use opencv::core::MatTrait;
 use opencv::prelude::MatTraitManual;
-use crate::shader_utility::texture_sample;
+use crate::shader_utility::{texture_sample, texture_sample2};
 
 pub type VertexShaderProgram=Box<dyn Fn(&SVertexShaderPayload) -> glm::Vec3>;
 pub type FrameShaderProgram=Box<dyn Fn(&SFragmentShaderPayload) -> glm::Vec3>;
@@ -85,4 +85,43 @@ pub fn texture_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
         tex_color = fs_payload.color;
     }
     return tex_color;
+}
+
+pub fn bump_fs(fs_payload: &SFragmentShaderPayload) -> glm::Vec3 {
+    let n = fs_payload.normal.normalize();
+    let _v = glm::vec1(n.x * n.x + n.z * n.z);
+    let _sqrt = glm::sqrt(&_v).x;
+    let t = glm::vec3(
+        1.0f32 * n.x * n.y / _sqrt,
+        _sqrt,
+        1.0f32 * n.z * n.y / _sqrt
+    );
+    let b = glm::cross(&n, &t);
+
+    let tbn = glm::Mat3x3::new(
+        t[0], b[0], n[0],
+        t[1], b[1], n[1],
+        t[2], b[2], n[2],
+    );
+
+    let kh = 0.2;
+    let kn = 0.1;
+    let kk = 255.0;
+    let w = fs_payload.texture.size().unwrap().width as f32;
+    let h = fs_payload.texture.size().unwrap().height as f32;
+    let uv = fs_payload.tex_coords;
+    let uv1 = glm::vec2(uv.x + 1f32/w, uv.y);
+    let uv2 = glm::vec2(uv.x, uv.y + 1f32/h);
+    let uv_c = texture_sample2(&fs_payload.texture, &uv).norm();
+    let dU = kh * kn * (texture_sample2(&fs_payload.texture, &uv1).norm() - uv_c);
+    let dV = kh * kn * (texture_sample2(&fs_payload.texture, &uv2).norm() - uv_c);
+
+    let ln = glm::vec3(-dU, -dV, 1f32);
+
+    // println!("{:?}", ln);
+
+
+    let w_normal = (tbn * ln).normalize();
+    // let c_normal = (w_normal + glm::vec3(1., 1., 1.)).scale(0.5);
+    return w_normal;
 }
